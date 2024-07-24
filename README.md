@@ -25,7 +25,7 @@ git clone https://github.com/Tencent-RTC/ultra-live-electron.git
 cd ultra-live-electron
 ```
 
-2. Open `src/config/basic-info-config.js` and fill in `SDKAppID` and `SDKSecretKey`.
+2. Open `src/debug/basic-info-config.js` and fill in `SDKAppID` and `SDKSecretKey`.
 
 3. Run in development mode
 ```
