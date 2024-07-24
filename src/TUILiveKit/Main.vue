@@ -1,5 +1,5 @@
 <template>
-  <div class="tui-live-kit">
+  <div class="tui-live-kit-main">
     <live-header :user="{name: userName, userId: userId, avatarUrl: avatarUrl as string}"  @logout="onLogout"/>
     <div class="tui-live-layout">
       <div class="tui-layout-left">
@@ -33,7 +33,6 @@
 </template>
 
 <script setup lang="ts">
-import "./assets/global.scss";
 import { ref, Ref, defineExpose, defineEmits, toRaw, onMounted, onUnmounted, onBeforeUnmount, nextTick } from 'vue';
 import { storeToRefs } from "pinia";
 import { TRTCStatistics, TRTCVideoStreamType } from 'trtc-electron-sdk';
@@ -149,6 +148,10 @@ onUnmounted(() => {
 
 function onLogout() {
   mediaMixingPlugin.setDisplayParams(new Uint8Array(8) ,{ left: 0, right: 0, top: 0, bottom: 0 });
+  basicStore.reset();
+  roomStore.reset();
+  chatStore.reset();
+  mediaSourcesStore.reset();
   emit("on-logout");
 }
 
@@ -481,11 +484,11 @@ onBeforeUnmount(() => {
 // ***************** 设备事件 end *****************
 </script>
 
-<style scoped lang="scss">
+<style lang="scss">
 @import "./assets/variable.scss";
 @import "./assets/global.scss";
 
-.tui-live-kit {
+.tui-live-kit-main {
   width: 100%;
   height: 100%;
   padding: 0 0.5rem 0.5rem 0.5rem;
