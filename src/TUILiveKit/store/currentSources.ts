@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
-import { TUIDeviceInfo, TUIDeviceType } from '@tencentcloud/tuiroom-engine-electron/plugins/device-manager-plugin';
-import { TRTCScreenCaptureSourceInfo } from '@tencentcloud/tuiroom-engine-electron';
+import { TRTCScreenCaptureSourceInfo, TUIDeviceInfo, TUIMediaDeviceType } from '@tencentcloud/tuiroom-engine-electron';
 import { UserInfo } from './room';
 import { TRTCXmagicEffectProperty, TRTCXmagicEffectCategory } from '../utils/beauty';
 
@@ -9,7 +8,7 @@ const logPrefix = '[currentSources]';
 
 const defaultCameraResolution = { width: 640, height: 360 };
 
-type CurrentViewType = 'camera' | 'screen' | 'file' | 'image' | 'voice-chat' | 'setting' | '';
+type CurrentViewType = 'camera' | 'screen' | 'file' | 'image' | 'voice-chat' | 'setting' | 'add-bgm' | 'reverb-voice' | 'change-voice' | '';
 
 interface TUICurrentMediaSourcesState {
     currentCameraResolution: {width: number; height: number;};
@@ -60,7 +59,7 @@ export const useCurrentSourcesStore = defineStore('currentSources', {
     setCurrentCameraId(deviceId: string) {
       this.currentCameraId = deviceId;
       const currentCamera = this.cameraList.find((item: TUIDeviceInfo) => item.deviceId === deviceId);
-      if (currentCamera) {
+      if (currentCamera && currentCamera.deviceProperties?.SupportedResolution?.length) {
         this.currentCameraResolution =  currentCamera.deviceProperties?.SupportedResolution[0] || defaultCameraResolution;
       } else {
         this.currentCameraResolution =  defaultCameraResolution;
@@ -69,7 +68,7 @@ export const useCurrentSourcesStore = defineStore('currentSources', {
       window.mainWindowPort?.postMessage({
         key: "setCurrentDevice",
         data: {
-          deviceType: TUIDeviceType.DeviceTypeCamera,
+          deviceType: TUIMediaDeviceType.kMediaDeviceTypeVideoCamera,
           deviceId,
         }
       });
@@ -91,7 +90,7 @@ export const useCurrentSourcesStore = defineStore('currentSources', {
     },
     setCameraList(deviceList: TUIDeviceInfo[]) {
       this.cameraList = deviceList;
-      if (!this.currentCameraId && deviceList.length > 0) {
+      if (!this.currentCameraId && deviceList.length > 0 && deviceList[0].deviceProperties?.SupportedResolution?.length) {
         this.setCurrentCameraId(deviceList[0].deviceId);
         this.setCurrentCameraResolution(deviceList[0].deviceProperties.SupportedResolution[0]);
       } else {
@@ -131,10 +130,10 @@ export const useCurrentSourcesStore = defineStore('currentSources', {
       this.currentAnchorList = anchorList;
     },
     updateAudioVolume(volume: number) {
-      this.micVolume = volume
+      this.micVolume = volume;
     },
     updateSpeakerVolume(volume: number) {
-      this.speakerVolume = volume
+      this.speakerVolume = volume;
     },
     setBeautyProperty(property: TRTCXmagicEffectProperty){
       const currentProperty = Object.assign({}, property);
@@ -194,7 +193,7 @@ export const useCurrentSourcesStore = defineStore('currentSources', {
       properties.forEach(item => this.setBeautyProperty(item));
     },
     clearFineBeauty() {
-      const fineBeautyProperty = this.beautyProperties.filter(item => item.category === TRTCXmagicEffectCategory.Beauty)
+      const fineBeautyProperty = this.beautyProperties.filter(item => item.category === TRTCXmagicEffectCategory.Beauty);
       fineBeautyProperty.forEach(item => Object.assign(item, { effValue: "0"}));
       window.mainWindowPort?.postMessage({
         key: "setCameraTestVideoPluginParameter",
@@ -221,4 +220,4 @@ export const useCurrentSourcesStore = defineStore('currentSources', {
       this.beautyProperties = [];
     },
   },
-})
+});

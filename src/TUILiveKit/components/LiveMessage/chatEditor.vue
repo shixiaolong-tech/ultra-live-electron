@@ -17,7 +17,7 @@ import { storeToRefs } from 'pinia';
 import { TencentCloudChat } from '@tencentcloud/tuiroom-engine-electron';
 import Emoji from './emoji.vue';
 import { useI18n } from '../../locales'
-import useGetRoomEngine from "../../utils/useRoomEngine";
+import useRoomEngine from "../../utils/useRoomEngine";
 import { useBasicStore } from '../../store/basic';
 import { useChatStore } from '../../store/chat';
 import { decodeSendTextMsg } from './util';
@@ -30,7 +30,7 @@ const basicStore = useBasicStore();
 const chatStore = useChatStore();
 const { roomId } = storeToRefs(basicStore);
 
-const roomEngine = useGetRoomEngine();
+const roomEngine = useRoomEngine();
 const sendMsg = ref('');
 const editorInputEle = ref();
 const sendMessage = async () => {

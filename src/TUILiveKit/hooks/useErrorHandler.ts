@@ -1,5 +1,5 @@
-import { onBeforeMount, onUnmounted } from "vue";
-import { TUIErrorCode } from "@tencentcloud/tuiroom-engine-electron";
+import { onBeforeMount, onUnmounted } from 'vue';
+import { TUIErrorCode } from '@tencentcloud/tuiroom-engine-electron';
 import TUIMessageBox from '../common/base/MessageBox';
 import { useI18n } from '../locales/index';
 const logger = console;

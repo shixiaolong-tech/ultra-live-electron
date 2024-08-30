@@ -32,7 +32,7 @@
 <script setup lang="ts">
 import { ref, Ref, watch, computed } from 'vue';
 import { storeToRefs } from 'pinia';
-import { TUIDeviceInfo } from '@tencentcloud/tuiroom-engine-electron/plugins/device-manager-plugin';
+import { TUIDeviceInfo } from '@tencentcloud/tuiroom-engine-electron';
 import Select from './base/Select.vue';
 import Option from './base/Option.vue';
 import { useCurrentSourcesStore } from '../store/currentSources';

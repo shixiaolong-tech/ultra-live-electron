@@ -34,19 +34,17 @@
 <script setup lang="ts">
 import { ref, Ref, defineEmits, onMounted, onBeforeUnmount, onUnmounted, computed, watch} from 'vue';
 import { storeToRefs } from 'pinia';
-import { TUIMediaSource } from '@tencentcloud/tuiroom-engine-electron/plugins/media-mixing-plugin';
-import { Rect, TRTCVideoResolutionMode } from '@tencentcloud/tuiroom-engine-electron';
+import { Rect, TUIResolutionMode, TUIMediaSource } from '@tencentcloud/tuiroom-engine-electron';
 import SelectMediaSource from './SelectMediaSource.vue';
 import Movable from "../../common/base/Movable";
 import Resizable from "../../common/base/Resizable";
-import useMedisMixingPlugin from "../../utils/useMediaMixingPlugin";
+import useMediaMixingManager from "../../utils/useMediaMixingManager";
 import { useBasicStore } from "../../store/basic";
 import { useRoomStore } from "../../store/room";
 import { useMediaSourcesStore, TUIMediaSourceViewModel } from '../../store/mediaSources';
-import { resolutionMap } from '../../utils/trtcCloud';
+import trtcCloud, { resolutionMap } from '../../utils/trtcCloud';
 import useContextMenu from './useContextMenu';
 import { useI18n } from "../../locales/index";
-import trtcCloud from '../../utils/trtcCloud';
 
 const { t } = useI18n();
 const basicStore = useBasicStore();
@@ -64,7 +62,7 @@ watch(
   ([newResMode, newResolution], oldVal?) => {
     console.log("[LivePreview]watch mixingVideoEncodeParam:", newResMode, newResolution, oldVal);
     const { width, height } = resolutionMap[newResolution];
-    if (newResMode === TRTCVideoResolutionMode.TRTCVideoResolutionModeLandscape) {
+    if (newResMode === TUIResolutionMode.kResolutionMode_Landscape) {
       mixingVideoWidth.value = width;
       mixingVideoHeight.value = height;
     } else {
@@ -81,7 +79,7 @@ console.log("[LivePreview]mixingVideoSize:", mixingVideoWidth.value, mixingVideo
 
 const emits = defineEmits(["changer-rect", "select", "edit-media-source"]);
 
-const mediaMixingPlugin = useMedisMixingPlugin();
+const mediaMixingManager = useMediaMixingManager();
 
 const nativeWindowsRef:Ref<HTMLDivElement | null> = ref(null);
 const isNativeWindowCreated: Ref<boolean> = ref(false);
@@ -283,7 +281,7 @@ const createNativeWindow = () => {
     if (!!window.nativeWindowHandle && nativeWindowsRef.value) {
       // 创建 native 窗口
       const clientRect = nativeWindowsRef.value.getBoundingClientRect();
-      mediaMixingPlugin.setDisplayParams(window.nativeWindowHandle, {
+      mediaMixingManager.setDisplayParams(window.nativeWindowHandle, {
         left: clientRect.left * window.devicePixelRatio,
         right: clientRect.right * window.devicePixelRatio,
         top: clientRect.top * window.devicePixelRatio,
@@ -308,8 +306,8 @@ const createNativeWindow = () => {
 
 const startLocalMediaMixing = async () => {
   const { mixingVideoEncodeParam, backgroundColor } = mediaSourcesStore
-  await mediaMixingPlugin.startPublish();
-  await mediaMixingPlugin.updatePublishParams({
+  await mediaMixingManager.startPublish();
+  await mediaMixingManager.updatePublishParams({
     inputSourceList: mediaList.value.map(item => item.mediaSourceInfo),
     videoEncoderParams: mixingVideoEncodeParam,
     canvasColor: backgroundColor,
@@ -331,7 +329,7 @@ const onPreviewAreaResize = (entries: ResizeObserverEntry[]) => {
 
     if (isNativeWindowCreated.value) {
       const clientRect = entry.target.getBoundingClientRect();
-      mediaMixingPlugin.setDisplayParams(window.nativeWindowHandle, {
+      mediaMixingManager.setDisplayParams(window.nativeWindowHandle, {
         left: clientRect.left * window.devicePixelRatio,
         right: clientRect.right * window.devicePixelRatio,
         top: clientRect.top * window.devicePixelRatio,
@@ -413,7 +411,7 @@ onBeforeUnmount(()=> {
   if (nativeWindowsRef.value && resizeObserver) {
     resizeObserver.unobserve(nativeWindowsRef.value);
   }
-  mediaMixingPlugin.stopPublish();
+  mediaMixingManager.stopPublish();
 });
 
 onUnmounted(()=> {
@@ -421,7 +419,7 @@ onUnmounted(()=> {
   if (resizeObserver) {
     resizeObserver.disconnect();
   }
-  mediaMixingPlugin.setDisplayParams(new Uint8Array(8) ,{ left: 0, right: 0, top: 0, bottom: 0 });
+  mediaMixingManager.setDisplayParams(new Uint8Array(8) ,{ left: 0, right: 0, top: 0, bottom: 0 });
 });
 </script>
 
@@ -438,7 +436,7 @@ onUnmounted(()=> {
 
     .tui-statis-item {
       padding: 0 0.5rem;
-      border-right: 1px solid $color-split-line;
+      border-right: 1px solid $color-divider-line;
 
       &:first-child {
         padding-left: 0;

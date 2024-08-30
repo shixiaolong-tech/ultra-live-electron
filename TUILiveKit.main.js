@@ -5,7 +5,7 @@ const {
   crashReporter,
   ipcMain,
   Menu,
-  // screen,
+  shell,
 } = require("electron");
 const path = require("node:path");
 const EventEmitter = require("node:events");
@@ -84,6 +84,15 @@ function isZhCN() {
   return language === "zh-CN";
 }
 
+function windowOpenHandler(details) {
+  if (details.url) {
+    if (details.url.startsWith('https:') || details.url.startsWith('http:')) {
+      shell.openExternal(details.url);
+    }
+  }
+  return { action: 'deny' };
+}
+
 async function createWindow(width = 1366, height = 668) {
   await checkAndApplyDeviceAccessPrivilege();
 
@@ -117,6 +126,10 @@ async function createWindow(width = 1366, height = 668) {
       preload: path.join(__dirname, "TUILiveKit.preload.js"),
     },
   });
+
+  // Make all links open with the browser, not with current application
+  windowMap.main.webContents.setWindowOpenHandler(windowOpenHandler);
+  windowMap.child.webContents.setWindowOpenHandler(windowOpenHandler);
 
   bindIPCEvent();
   bindMainWindowEvent();
@@ -183,6 +196,9 @@ function bindIPCEvent() {
       windowMap.child?.setContentSize(width -150, height - 80, true);
       break;
     case 'voice-chat':
+    case 'add-bgm':
+    case 'audio-effect':
+    case 'alter-voice':
     case 'setting':
       windowMap.child?.setSize(600, 560, true);
       windowMap.child?.setContentSize(600, 560, true);

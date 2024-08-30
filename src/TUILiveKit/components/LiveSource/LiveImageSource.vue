@@ -10,7 +10,7 @@
 </template>
 <script setup lang="ts">
 import { ref, Ref, defineProps, defineExpose, computed, watch } from 'vue';
-import { TUIMediaSourceType } from '@tencentcloud/tuiroom-engine-electron/plugins/media-mixing-plugin';
+import { TUIMediaSourceType } from '@tencentcloud/tuiroom-engine-electron';
 import { useI18n } from '../../locales';
 import CameraIcon from '../../common/icons/CameraIcon.vue';
 import SvgIcon from '../../common/base/SvgIcon.vue';

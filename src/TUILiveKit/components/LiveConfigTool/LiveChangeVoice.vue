@@ -1,0 +1,246 @@
+<template>
+  <div class="tui-change-voice-window">
+    <div class="tui-change-voice-title tui-window-header">
+      <span>{{ t("Change Voice") }}</span>
+      <button class="tui-icon" @click="handleCloseSetting">
+        <svg-icon :icon="CloseIcon"></svg-icon>
+      </button>
+    </div>
+    <div class="tui-change-voice-container">
+    <div class="tui-change-voice-item" v-for="item in changeVoiceList" :key="item.id">
+      <div class="tui-change-voice-icon">
+        <svg-icon @click="onSelectChangeVoice(item.id)" :class="item.id === musicData.changeVoiceInfo.selectId ? 'active-item' : 'normal-item'" :icon="item.icon" ></svg-icon>
+      </div>
+      <div class="tui-change-voice-text">{{t(`${item.text}`)}}</div>
+    </div>
+    </div>
+    <div class="tui-change-voice-footer">
+    <div class="tui-operate-button tui-operate-confirm" @click="onConfirmSelect">{{t("Confirm")}}</div>
+    <div class="tui-operate-button" @click="handleCloseSetting">{{ t("Cancel") }}</div>
+    </div>
+  </div>
+</template>
+<script setup lang="ts">
+import { onUnmounted } from "vue";
+import { storeToRefs } from "pinia";
+import SvgIcon from "../../common/base/SvgIcon.vue";
+import CloseIcon from "../../common/icons/CloseIcon.vue";
+import OriginVoiceIcon from "../../common/icons/ChangeVoiceIcons/OriginVoiceIcon.vue";
+import NaughtyKidIcon from "../../common/icons/ChangeVoiceIcons/NaughtyKidIcon.vue";
+import LolitaIcon from "../../common/icons/ChangeVoiceIcons/LolitaIcon.vue";
+import UncleIcon from "../../common/icons/ChangeVoiceIcons/UncleIcon.vue";
+import HeavyMetalIcon from "../../common/icons/ChangeVoiceIcons/HeavyMetalIcon.vue";
+import InfluenzaIcon from "../../common/icons/ChangeVoiceIcons/InfluenzaIcon.vue";
+import ForeignLanguagesIcon from "../../common/icons/ChangeVoiceIcons/ForeignLanguagesIcon.vue";
+import TrappedBeastIcon from "../../common/icons/ChangeVoiceIcons/TrappedBeastIcon.vue";
+import PlumpIcon from "../../common/icons/ChangeVoiceIcons/PlumpIcon.vue";
+import HeavyCurrentIcon from "../../common/icons/ChangeVoiceIcons/HeavyCurrentIcon.vue";
+import HeavyMachineryIcon from "../../common/icons/ChangeVoiceIcons/HeavyMachineryIcon.vue";
+import IntangibleIcon from "../../common/icons/ChangeVoiceIcons/IntangibleIcon.vue";
+import { TUIVoiceChangerType } from "../../utils/useAudioEffectManager";
+import { useMusicDataStore } from "../../store/musicData";
+import { useI18n } from "../../locales";
+
+const musicDataStore = useMusicDataStore();
+const { musicData } = storeToRefs(musicDataStore);
+const {updateAudioEffectOrChangeVoiceInfo} = musicDataStore;
+const { t } = useI18n();
+const changeVoiceList = [
+  { 
+    id:TUIVoiceChangerType.kVoiceChangerType_0,
+    icon: OriginVoiceIcon,
+    text: "Original Audio",
+  },
+  {
+    id:TUIVoiceChangerType.kVoiceChangerType_1,
+    icon: NaughtyKidIcon,
+    text: "Naughty Kid",
+  },
+  {
+    id:TUIVoiceChangerType.kVoiceChangerType_2,
+    icon: LolitaIcon,
+    text: "Lolita",
+  },
+  {
+    id:TUIVoiceChangerType.kVoiceChangerType_3,
+    icon: UncleIcon,
+    text: "Uncle",
+  },
+  {
+    id:TUIVoiceChangerType.kVoiceChangerType_4,
+    icon: HeavyMetalIcon,
+    text: "Heavy Metal",
+  },
+  {
+    id:TUIVoiceChangerType.kVoiceChangerType_5,
+    icon: InfluenzaIcon,
+    text: "Influenza",
+  },
+  {
+    id:TUIVoiceChangerType.kVoiceChangerType_6,
+    icon: ForeignLanguagesIcon,
+    text: "Foreign Language",
+  },
+  {
+    id:TUIVoiceChangerType.kVoiceChangerType_7,
+    icon: TrappedBeastIcon,
+    text: "Trapped Beast",
+  },
+  {
+    id:TUIVoiceChangerType.kVoiceChangerType_8,
+    icon: PlumpIcon,
+    text: "Plump",
+  },
+  {
+    id:TUIVoiceChangerType.kVoiceChangerType_9,
+    icon: HeavyCurrentIcon,
+    text: "Heavy Current",
+  },
+  {
+    id:TUIVoiceChangerType.kVoiceChangerType_10,
+    icon: HeavyMachineryIcon,
+    text: "Heavy Machinery",
+  },
+  {
+    id:TUIVoiceChangerType.kVoiceChangerType_11,
+    icon: IntangibleIcon,
+    text: "Intangible",
+  }
+];
+
+onUnmounted(() => {
+  musicData.value.changeVoiceInfo.selectId = musicData.value.changeVoiceInfo.activeId;
+  updateAudioEffectOrChangeVoiceInfo("changeVoiceInfo",musicData.value.changeVoiceInfo);
+  window.mainWindowPort?.postMessage({
+    key:"setVoiceChangerType",
+    data:musicData.value.changeVoiceInfo.selectId,
+  });
+})
+
+function onSelectChangeVoice(id:number){
+  if(typeof id !== 'number')return;
+  musicData.value.changeVoiceInfo.selectId = id;
+  window.mainWindowPort?.postMessage({
+    key:"setVoiceChangerType",
+    data:id,
+  });
+}
+
+function onConfirmSelect(){
+  musicData.value.changeVoiceInfo.activeId = musicData.value.changeVoiceInfo.selectId;
+  handleCloseSetting();
+}
+
+
+
+function handleCloseSetting(){
+  musicData.value.changeVoiceInfo.selectId = musicData.value.changeVoiceInfo.activeId;
+  updateAudioEffectOrChangeVoiceInfo("changeVoiceInfo",musicData.value.changeVoiceInfo);
+  window.mainWindowPort?.postMessage({
+    key:"setVoiceChangerType",
+    data:musicData.value.changeVoiceInfo.selectId,
+  });
+  window.ipcRenderer.send("close-child");
+}
+</script>
+<style scoped lang="scss">
+@import "../../assets/variable.scss";
+.tui-change-voice-window {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+
+  .tui-change-voice-title {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+
+    .close-icon {
+      cursor: pointer;
+    }
+  }
+
+  .tui-change-voice-container{
+    width: 100%;
+    height:85%;
+    padding:1.5rem;
+    background-color: $color-background-secondary;
+    display:flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap:wrap;
+
+    .tui-change-voice-item{
+      width: 6rem;
+      height:6rem;
+      margin:0 1rem;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content: center;
+      position:relative;
+
+      .tui-change-voice-icon{
+        display: flex;
+        align-items: center;
+        justify-content:center;
+      }
+
+      .tui-change-voice-text{
+        width:200%;
+        text-align: center;
+      }
+    }
+
+    .normal-item{
+      color:$color-audio-effect-default;
+    }
+
+    .active-item{
+      color:$color-audio-effect-active;
+    }
+
+    .active-item::before{
+      content:url("../../assets/ActiveEffect.svg");
+      display:inline-block;
+      width: 6.25rem;
+      height:6.25rem;
+      position:absolute;
+    }
+  }
+
+  .tui-change-voice-footer{
+    display: flex;
+    justify-content: end;
+    align-items: center;
+    width: 100%;
+    height: 10%;
+    padding-right: 2rem;
+    background-color: $color-background-secondary;
+    border-top:1px solid $color-divider-line;
+
+    .tui-operate-button{
+      width:5.5rem;
+      height:2rem;
+      background-color: $color-white;
+      color:$color-play-button;
+      font-weight: 2px;
+      border-radius:1rem;
+      border:1.5px solid $color-play-button;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      cursor:pointer;
+    }
+    
+    .tui-operate-confirm{
+      background-color: $color-play-button;
+      color:$color-font-default;
+      margin-right:1rem;
+    }
+  }
+}
+</style>

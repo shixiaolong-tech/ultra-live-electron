@@ -47,9 +47,6 @@ import BeautyConfigPanel from '../common/BeautyConfigPanel.vue';
 import { useI18n } from '../locales/index';
 import { useCurrentSourcesStore } from '../store/currentSources';
 import { TRTCXmagicEffectProperty } from '../utils/beauty';
-// import useGetRoomEngine from '../utils/useRoomEngine';
-// import { TRTCVideoFillMode, TRTCVideoMirrorType, TRTCVideoRotation } from '@tencentcloud/tuiroom-engine-electron';
-// const roomEngine = useGetRoomEngine();
 const { t } = useI18n()
 const sourcesStore = useCurrentSourcesStore();
 const { isCurrentCameraMirrored, beautyProperties } = storeToRefs(sourcesStore);

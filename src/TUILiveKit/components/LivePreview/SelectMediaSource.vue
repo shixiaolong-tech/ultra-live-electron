@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { defineProps, defineEmits, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { storeToRefs } from 'pinia';
-import { TUIMediaSourceType } from '@tencentcloud/tuiroom-engine-electron/plugins/media-mixing-plugin';
+import { TUIMediaSourceType } from '@tencentcloud/tuiroom-engine-electron';
 import { useMediaSourcesStore, TUIMediaSourceViewModel } from '../../store/mediaSources';
 
 interface Props {
