@@ -1,6 +1,6 @@
 import { Ref, watchEffect, onMounted, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
-import { TUIMediaSourceType } from '@tencentcloud/tuiroom-engine-electron/plugins/media-mixing-plugin';
+import { TUIMediaSourceType } from '@tencentcloud/tuiroom-engine-electron';
 import { useMediaSourcesStore, TUIMediaSourceViewModel } from '../../store/mediaSources';
 
 const logger = console;

@@ -19,9 +19,7 @@
 <script setup lang="ts">
 import { ref, Ref, defineProps, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { storeToRefs } from 'pinia';
-import { TRTCVideoMirrorType } from 'trtc-electron-sdk';
-import { TUIDeviceInfo } from '@tencentcloud/tuiroom-engine-electron/plugins/device-manager-plugin';
-import { TUIMediaSourceType } from '@tencentcloud/tuiroom-engine-electron/plugins/media-mixing-plugin';
+import { TUIDeviceInfo, TUIMediaSourceType, TUIMediaMirrorType } from '@tencentcloud/tuiroom-engine-electron';
 import { useI18n } from '../../locales';
 import { useCurrentSourcesStore } from '../../store/currentSources';
 import SvgIcon from '../../common/base/SvgIcon.vue';
@@ -68,7 +66,7 @@ const handleAddCamera = () => {
       name: currentCamera.deviceName,
       width: currentCameraResolution.value.width,
       height: currentCameraResolution.value.height,
-      mirrorType: isCurrentCameraMirrored.value ? TRTCVideoMirrorType.TRTCVideoMirrorType_Enable : TRTCVideoMirrorType.TRTCVideoMirrorType_Disable,
+      mirrorType: isCurrentCameraMirrored.value ? TUIMediaMirrorType.kMediaMirrorType_Enable : TUIMediaMirrorType.kMediaMirrorType_Disable,
       beautyConfig: {
         isEnabled: true,
         beautyProperties: JSON.parse(JSON.stringify(beautyProperties.value))
@@ -97,7 +95,7 @@ const handleEditCamera = () => {
       name: currentCamera.deviceName,
       width: currentCameraResolution.value.width,
       height: currentCameraResolution.value.height,
-      mirrorType: isCurrentCameraMirrored.value ? TRTCVideoMirrorType.TRTCVideoMirrorType_Enable : TRTCVideoMirrorType.TRTCVideoMirrorType_Disable,
+      mirrorType: isCurrentCameraMirrored.value ? TUIMediaMirrorType.kMediaMirrorType_Enable : TUIMediaMirrorType.kMediaMirrorType_Disable,
       beautyConfig: {
         isEnabled: true,
         beautyProperties: JSON.parse(JSON.stringify(beautyProperties.value))
@@ -150,7 +148,7 @@ watch(props, async (val) => {
       const beautyProperties = JSON.parse(JSON.stringify(beautyConfig.beautyProperties));
       sourcesStore.setCurrentCameraId(sourceId);
       sourcesStore.setCurrentCameraResolution({ width, height });
-      sourcesStore.setIsCurrentCameraMirrored(mirrorType === TRTCVideoMirrorType.TRTCVideoMirrorType_Enable);
+      sourcesStore.setIsCurrentCameraMirrored(mirrorType === TUIMediaMirrorType.kMediaMirrorType_Enable);
       sourcesStore.setBeautyProperties(beautyProperties);
 
       await nextTick(); // 等待父组件渲染完，触发打开摄像头操作

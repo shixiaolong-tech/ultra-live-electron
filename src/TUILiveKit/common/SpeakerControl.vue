@@ -8,17 +8,17 @@
     
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { TUIDeviceType } from '@tencentcloud/tuiroom-engine-electron/plugins/device-manager-plugin';
+import { TUIMediaDeviceType } from '@tencentcloud/tuiroom-engine-electron';
 import SvgIcon from './base/SvgIcon.vue';
 import SpeakerOffIcon from './icons/SpeakerOffIcon.vue';
 import ArrowSetUpIcon from './icons/ArrowSetUpIcon.vue';
 import SpeakerOnIcon from './icons/SpeakerOnIcon.vue';
-import useGetRoomEngine from '../utils/useRoomEngine';
+import useRoomEngine from '../utils/useRoomEngine';
 import TuiSlider from './base/Slider.vue';
-import useDeviceManagerPlugin from '../utils/useDeviceManagerPlugin';
+import useDeviceManager from '../utils/useDeviceManager';
 
-const roomEngine = useGetRoomEngine();
-const deviceManagerPlugin = useDeviceManagerPlugin();
+const roomEngine = useRoomEngine();
+const deviceManager = useDeviceManager();
 
 const speakerRate = ref(0);
 let currentSpeakerRate: number;
@@ -27,23 +27,23 @@ const speakerIcon = computed(()=> speakerRate.value ? SpeakerOnIcon : SpeakerOff
 const onUpdateSpeakerValue = (volume: number) => {
   const value = Math.round(volume);
   speakerRate.value = value/100;
-  deviceManagerPlugin.setCurrentDeviceVolume(TUIDeviceType.DeviceTypeSpeaker, value);
+  deviceManager.setCurrentDeviceVolume(TUIMediaDeviceType.kMediaDeviceTypeAudioOutput, value);
 }
 
 const toggleMuteSpeaker = () => {
   if (speakerRate.value) {
     currentSpeakerRate = speakerRate.value; 
-    deviceManagerPlugin.setCurrentDeviceMute(TUIDeviceType.DeviceTypeSpeaker, true);
+    deviceManager.setCurrentDeviceMute(TUIMediaDeviceType.kMediaDeviceTypeAudioOutput, true);
     speakerRate.value = 0;
   } else {
-    deviceManagerPlugin.setCurrentDeviceMute(TUIDeviceType.DeviceTypeSpeaker, false);
+    deviceManager.setCurrentDeviceMute(TUIMediaDeviceType.kMediaDeviceTypeAudioOutput, false);
     speakerRate.value = currentSpeakerRate;
   }
 }
 
 onMounted(async () => {
   try {
-    const speakerVolume = await deviceManagerPlugin.getCurrentDeviceVolume(TUIDeviceType.DeviceTypeSpeaker);
+    const speakerVolume = await deviceManager.getCurrentDeviceVolume(TUIMediaDeviceType.kMediaDeviceTypeAudioOutput);
     speakerRate.value = speakerVolume/100;
   } catch (error) {
     console.error('Get current device volume failed:', error);
@@ -72,4 +72,4 @@ onMounted(async () => {
       margin-left: 0.5rem;
     }
   </style>
-  
+ 

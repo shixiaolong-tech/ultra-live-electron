@@ -1,8 +1,9 @@
-import { TRTCVideoBufferType, TRTCVideoPixelFormat } from 'trtc-electron-sdk';
-import TUIVideoEffectPluginManager, { TUIVideoEffectPlugin } from '@tencentcloud/tuiroom-engine-electron/plugins/video-effect-plugin';
+import TUIRoomEngine, { TUIVideoEffectPluginManager, TUIVideoEffectPlugin, TUIVideoPixelFormat } from '@tencentcloud/tuiroom-engine-electron';
 import { TRTCXmagicFactory, XmagicLicense, TRTCXmagicEffectProperty } from "./beauty";
 
 const logger = console;
+
+const videoEffectPluginManager: TUIVideoEffectPluginManager = TUIRoomEngine.getVideoEffectPluginManager();
 
 class TUIVideoEffectManager {
   private logPrefix = '[TUIVideoEffectManager]';
@@ -26,17 +27,18 @@ class TUIVideoEffectManager {
 
   async init() {
     if (!this.inited) {
-      TUIVideoEffectPluginManager.setVideoPluginFormat(
-        TRTCVideoBufferType.TRTCVideoBufferType_Buffer,
-        TRTCVideoPixelFormat.TRTCVideoPixelFormat_I420
-      );
-      TUIVideoEffectPluginManager.setCallback((pluginId: string, errorCode: number, errorMessage: string) => {
-        logger.log(`plugin event, pluginId : ${pluginId}, errorCode : ${errorCode}, errorMessage : ${errorMessage}`);
-      });
-      this.libPath = await TRTCXmagicFactory.getEffectPluginLibPath();
-      this.initParam = await TRTCXmagicFactory.buildEffectInitParam(XmagicLicense);
-      this.inited = true;
-      logger.log(`${this.logPrefix}init success.`, this.libPath, this.initParam?.licenseURL);
+      if (videoEffectPluginManager) {
+        videoEffectPluginManager.setVideoPluginFormat(TUIVideoPixelFormat.kVideoPixelFormat_I420);
+        videoEffectPluginManager.setCallback((pluginId: string, errorCode: number, errorMessage: string) => {
+          logger.log(`plugin event, pluginId : ${pluginId}, errorCode : ${errorCode}, errorMessage : ${errorMessage}`);
+        });
+        this.libPath = await TRTCXmagicFactory.getEffectPluginLibPath();
+        this.initParam = await TRTCXmagicFactory.buildEffectInitParam(XmagicLicense);
+        this.inited = true;
+        logger.log(`${this.logPrefix}init success.`, this.libPath, this.initParam?.licenseURL);
+      } else {
+        logger.error(`${this.logPrefix} video effect plugin manager not inited`);
+      }
     }
   }
 
@@ -66,11 +68,15 @@ class TUIVideoEffectManager {
   stopEffect(cameraId: string) {
     logger.debug(`${this.logPrefix}stopEffect ${cameraId}`);
     const plugin = this.beautyPluginMap.get(cameraId);
-    if (plugin) {
-      TUIVideoEffectPluginManager.removeVideoPlugin(plugin.deviceId, plugin.id);
-      this.beautyPluginMap.delete(cameraId);
+    if (videoEffectPluginManager) {
+      if (plugin) {
+        videoEffectPluginManager.removeVideoPlugin(plugin.deviceId, plugin.id);
+        this.beautyPluginMap.delete(cameraId);
+      } else {
+        logger.error(`${this.logPrefix}stopEffect failed. No effect plugin for camera:`, cameraId);
+      }
     } else {
-      logger.error(`${this.logPrefix}stopEffect failed. No effect plugin for camera:`, cameraId);
+      logger.error(`${this.logPrefix} video effect plugin manager not inited`);
     }
   }
 
@@ -99,26 +105,35 @@ class TUIVideoEffectManager {
   clear() {
     logger.debug(`${this.logPrefix}clear`);
     this.beautyPluginMap.forEach((plugin) => {
-      TUIVideoEffectPluginManager.removeVideoPlugin(plugin.deviceId, plugin.id);
+      if (videoEffectPluginManager) {
+        videoEffectPluginManager.removeVideoPlugin(plugin.deviceId, plugin.id);
+      } else {
+        logger.error(`${this.logPrefix} video effect plugin manager not inited`);
+      }
     });
     this.beautyPluginMap.clear();
   }
 
   private addPlugin(cameraId: string): TUIVideoEffectPlugin | null {
     const pluginId = `${cameraId}-${new Date().getTime()}`; // ID 可以随意设置，只要唯一、不重复就行
-    const plugin: TUIVideoEffectPlugin | null = TUIVideoEffectPluginManager.addVideoPlugin({
-      pluginId: pluginId,
-      deviceId: cameraId,
-      path: this.libPath,
-    });
-    if (plugin) {
-      this.beautyPluginMap.set(cameraId, plugin);
-      plugin.enable(true);
-      plugin.setParameter(JSON.stringify(this.initParam)); 
-      logger.debug(`${this.logPrefix}addPlugin success for camera: ${cameraId}`);
-      return plugin;
+    if (videoEffectPluginManager) {
+      const plugin: TUIVideoEffectPlugin | null = videoEffectPluginManager.addVideoPlugin({
+        pluginId: pluginId,
+        deviceId: cameraId,
+        path: this.libPath,
+      });
+      if (plugin) {
+        this.beautyPluginMap.set(cameraId, plugin);
+        plugin.enable(true);
+        plugin.setParameter(JSON.stringify(this.initParam)); 
+        logger.debug(`${this.logPrefix}addPlugin success for camera: ${cameraId}`);
+        return plugin;
+      } else {
+        logger.error(`${this.logPrefix}addPlugin failed for camera: ${cameraId}`);
+        return null;
+      }
     } else {
-      logger.error(`${this.logPrefix}addPlugin failed for camera: ${cameraId}`);
+      logger.error(`${this.logPrefix} video effect plugin manager not inited`);
       return null;
     }
   }
@@ -130,4 +145,6 @@ class TUIVideoEffectManager {
 
 const videoEffectManager = TUIVideoEffectManager.getInstance();
 
-export default videoEffectManager;
+export default function useVideoEffectManager() {
+  return videoEffectManager;
+}

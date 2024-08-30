@@ -130,8 +130,7 @@ import ColorPicker from '../../common/base/ColorPicker.vue';
 import MediaSourceMute from '../../common/icons/MediaSourceMute.vue';
 import MediaSourceUnmute from '../../common/icons/MediaSourceUnmute.vue';
 import { TUIMediaSourceViewModel, useMediaSourcesStore } from '../../store/mediaSources';
-import { TUIMediaSourceType } from '@tencentcloud/tuiroom-engine-electron/plugins/media-mixing-plugin';
-import { TRTCVideoResolutionMode } from 'trtc-electron-sdk';
+import { TUIMediaSourceType } from '@tencentcloud/tuiroom-engine-electron';
 import LiveImageSource from '../LiveSource/LiveImageSource.vue';
 
 type TUIMusicType = {
@@ -456,7 +455,7 @@ const onUpdateVoiceValue = (event: number) => {
   position: relative;
   height: calc(100% - 2rem);
   overflow: auto;
-
+  
   .tui-add-source-menu{
     display: flex;
     align-items: center;

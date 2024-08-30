@@ -12,7 +12,7 @@ import {
 import { useBasicStore } from './basic';
 import { useChatStore } from './chat';
 import { set, del } from '../utils/vue';
-import useGetRoomEngine from '../utils/useRoomEngine';
+import useRoomEngine from '../utils/useRoomEngine';
 import { messageChannels } from '../communication';
 import { onError } from '../hooks/useErrorHandler';
 import { useI18n } from '../locales';
@@ -20,7 +20,7 @@ const logger = console;
 const logPrefix = '[roomStore]';
 const { t } = useI18n();
 
-const roomEngine = useGetRoomEngine();
+const roomEngine = useRoomEngine();
 
 export type UserInfo = {
     userId: string,

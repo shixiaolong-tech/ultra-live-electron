@@ -1,4 +1,5 @@
-import TRTCCloud, { TRTCVideoResolution } from 'trtc-electron-sdk';
+import TRTCCloud from 'trtc-electron-sdk';
+import { TUIVideoResolution } from '@tencentcloud/tuiroom-engine-electron';
 
 const trtcCloud  = TRTCCloud.getTRTCShareInstance();
 
@@ -11,10 +12,10 @@ type TUIVideoResolutionType = Record<string|number, {
 
 const initResolutionMap = (): TUIVideoResolutionType => {
   const map: TUIVideoResolutionType = {};
-  for (const key in TRTCVideoResolution) {
+  for (const key in TUIVideoResolution) {
     const isValueProperty = parseInt(key, 10) >= 0;
     if (!isValueProperty) {
-      const value = TRTCVideoResolution[key];
+      const value = TUIVideoResolution[key];
       const tmp = key.split('_');
       map[value] = {
         width: parseInt(tmp[1]),

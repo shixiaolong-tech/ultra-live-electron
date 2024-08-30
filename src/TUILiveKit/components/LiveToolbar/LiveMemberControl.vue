@@ -24,7 +24,7 @@ import MicropositionIcon from '../../common/icons/MicropositionIcon.vue';
 import CancelMikeIcon from '../../common/icons/CancelMikeIcon.vue';
 import BlacklistIcon from '../../common/icons/BlacklistIcon.vue';
 import KickedIcon from '../../common/icons/KickedIcon.vue';
-import useGetRoomEngine from '../../utils/useRoomEngine';
+import useRoomEngine from '../../utils/useRoomEngine';
 
 const logger = console;
 
@@ -34,7 +34,7 @@ interface Props {
   userId: string;
 }
 
-const roomEngine = useGetRoomEngine();
+const roomEngine = useRoomEngine();
 
 const emit = defineEmits([
   "on-close",

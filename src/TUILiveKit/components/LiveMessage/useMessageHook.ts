@@ -2,14 +2,14 @@ import { onUnmounted } from 'vue';
 import { useChatStore } from '../../store/chat';
 import { useBasicStore } from '../../store/basic';
 import TUIRoomEngine, { TencentCloudChat } from '@tencentcloud/tuiroom-engine-electron';
-import useGetRoomEngine from '../../utils/useRoomEngine';
+import useRoomEngine from '../../utils/useRoomEngine';
 
 const logger = console;
 const logPrefix = '[useMessageHook]';
 
 export default function useMessageHook() {
   logger.log(`${logPrefix}invoked`);
-  const roomEngine = useGetRoomEngine();
+  const roomEngine = useRoomEngine();
   const chatStore = useChatStore();
   const basicStore = useBasicStore();
 

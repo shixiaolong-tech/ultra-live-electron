@@ -36,7 +36,7 @@
       </div>
       <div class="tui-streaming-toolbar-right">
         <span @click="toggleVideoResolutionMode" class="tui-resolution-mode-switch">
-          <svg-icon :icon="mixingVideoEncodeParam.resMode === TRTCVideoResolutionMode.TRTCVideoResolutionModeLandscape ? HorizontalScreenIcon : VerticalScreenIcon" :size="1.5" />
+          <svg-icon :icon="mixingVideoEncodeParam.resMode === TUIResolutionMode.kResolutionMode_Landscape ? HorizontalScreenIcon : VerticalScreenIcon" :size="1.5" />
         </span>
         <tui-button @click="handleChangeLivingStatus" :class="['tui-btn-live-switch', isLiving ? 'is-living' :'']" :disabled="isLiveSwitchDisabled">
           <svg-icon :icon="liveStatusIcon" ></svg-icon>
@@ -52,8 +52,7 @@
 <script setup lang="ts">
 import { ref, Ref, computed, defineEmits, nextTick, shallowRef, watch } from 'vue';
 import { storeToRefs } from 'pinia';
-import { TRTCVideoResolutionMode } from 'trtc-electron-sdk';
-import { TUIDeviceType } from '@tencentcloud/tuiroom-engine-electron/plugins/device-manager-plugin';
+import { TUIResolutionMode } from '@tencentcloud/tuiroom-engine-electron';
 import BeautyIcon from '../../common/icons/BeautyIcon.vue';
 import AudioControl from '../../common/AudioControl.vue';
 import SpeakerControl from '../../common/SpeakerControl.vue';
@@ -76,14 +75,15 @@ import { useI18n } from '../../locales';
 import { useBasicStore } from '../../store/basic';
 import { useMediaSourcesStore } from '../../store/mediaSources';
 import { useRoomStore } from '../../store/room';
-import useDeviceManagerPlugin from '../../utils/useDeviceManagerPlugin';
 import { messageChannels } from '../../communication';
 import TuiBadge from '../../common/base/Badge.vue';
+import { useMusicDataStore } from "../../store/musicData"
+const { initChangeVoiceAndAudioEffect } = useMusicDataStore();
 
 interface screenStyle {
   icon: object,
   text: string,
-  value: TRTCVideoResolutionMode,
+  value: TUIResolutionMode,
 }
 interface disposition {
   icon: object,
@@ -101,7 +101,6 @@ const mediaSourcesStore = useMediaSourcesStore();
 const { mixingVideoEncodeParam } = storeToRefs(mediaSourcesStore);
 const roomStore = useRoomStore();
 const { roomId, isLiving } = storeToRefs(basicStore);
-const deviceManagerPlugin = useDeviceManagerPlugin();
 
 const { applyToAnchorList, anchorList } = storeToRefs(roomStore);
 
@@ -128,12 +127,12 @@ const screenStyleList = shallowRef([
   {
     icon: VerticalScreenIcon,
     text: t('Vertical screen'),
-    value: TRTCVideoResolutionMode.TRTCVideoResolutionModeLandscape,
+    value: TUIResolutionMode.kResolutionMode_Landscape,
   },
   {
     icon: HorizontalScreenIcon,
     text: t('Horizontal screen'),
-    value: TRTCVideoResolutionMode.TRTCVideoResolutionModePortrait,
+    value: TUIResolutionMode.kResolutionMode_Portrait,
   }
 ]);
 
@@ -200,10 +199,10 @@ function handleSetting() {
 }
 
 function toggleVideoResolutionMode() {
-  if (mixingVideoEncodeParam.value.resMode === TRTCVideoResolutionMode.TRTCVideoResolutionModeLandscape) {
-    mediaSourcesStore.updateResolutionMode(TRTCVideoResolutionMode.TRTCVideoResolutionModePortrait);
+  if (mixingVideoEncodeParam.value.resMode === TUIResolutionMode.kResolutionMode_Landscape) {
+    mediaSourcesStore.updateResolutionMode(TUIResolutionMode.kResolutionMode_Portrait);
   } else {
-    mediaSourcesStore.updateResolutionMode(TRTCVideoResolutionMode.TRTCVideoResolutionModeLandscape);
+    mediaSourcesStore.updateResolutionMode(TUIResolutionMode.kResolutionMode_Landscape);
   }
 }
 
@@ -214,6 +213,7 @@ async function handleChangeLivingStatus() {
   isLiveSwitchDisabled.value = true;
   await nextTick();
   if (!isLiving.value) {
+    initChangeVoiceAndAudioEffect();
     emits("onStartLiving");
   } else {
     emits("onStopLiving");
@@ -243,7 +243,7 @@ watch(
   padding: 0 0.5rem;
   .tui-layout-toolbar {
     height: 100%;
-    border-bottom: 1px solid $color-split-line;
+    border-bottom: 1px solid $color-divider-line;
     display: flex;
     justify-content: space-between;
     align-items: center;

@@ -8,15 +8,15 @@
   
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { TUIDeviceType } from '@tencentcloud/tuiroom-engine-electron/plugins/device-manager-plugin';
+import { TUIMediaDeviceType } from '@tencentcloud/tuiroom-engine-electron';
 import SvgIcon from './base/SvgIcon.vue';
 import MicOffIcon from './icons/MicOffIcon.vue';
 import ArrowSetUpIcon from './icons/ArrowSetUpIcon.vue';
 import MicOnIcon from './icons/MicOnIcon.vue';
 import TuiSlider from './base/Slider.vue';
-import useDeviceManagerPlugin from '../utils/useDeviceManagerPlugin';
+import useDeviceManager from '../utils/useDeviceManager';
 
-const deviceManagerPlugin = useDeviceManagerPlugin();
+const deviceManager = useDeviceManager();
 
 const voiceRate = ref(0);
 let currentVoiceRate: number;
@@ -26,23 +26,23 @@ const micIcon = computed(()=> voiceRate.value ? MicOnIcon : MicOffIcon);
 const onUpdateVoiceValue = (volume: number) => {
   const value = Math.round(volume);
   voiceRate.value = value/100;
-  deviceManagerPlugin.setCurrentDeviceVolume(TUIDeviceType.DeviceTypeMic, value);
+  deviceManager.setCurrentDeviceVolume(TUIMediaDeviceType.kMediaDeviceTypeAudioInput, value);
 }
 
 const toggleMuteMic = () => {
   if (voiceRate.value) {
     currentVoiceRate = voiceRate.value; 
-    deviceManagerPlugin.setCurrentDeviceMute(TUIDeviceType.DeviceTypeMic, true);
+    deviceManager.setCurrentDeviceMute(TUIMediaDeviceType.kMediaDeviceTypeAudioInput, true);
     voiceRate.value = 0;
   } else {
-    deviceManagerPlugin.setCurrentDeviceMute(TUIDeviceType.DeviceTypeMic, false);
+    deviceManager.setCurrentDeviceMute(TUIMediaDeviceType.kMediaDeviceTypeAudioInput, false);
     voiceRate.value = currentVoiceRate;
   }
 }
 
 onMounted(async () => {
   try {
-    const micVolume = await deviceManagerPlugin.getCurrentDeviceVolume(TUIDeviceType.DeviceTypeMic);
+    const micVolume = await deviceManager.getCurrentDeviceVolume(TUIMediaDeviceType.kMediaDeviceTypeAudioInput);
     voiceRate.value = micVolume/100;
   } catch (error) {
     console.error('Get current device volume failed:', error);
