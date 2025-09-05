@@ -10,7 +10,6 @@ import { TUILiveUserInfo, TUIStreamLayoutMode, TUISeatLayoutTemplate } from '../
 import { useBasicStore } from './basic';
 import { useChatStore } from './chat';
 import { TUIMediaSourcesState, useMediaSourcesStore } from './mediaSources';
-import { set, del } from '../../utils/vue';
 import useRoomEngine from '../../utils/useRoomEngine';
 import { messageChannels } from '../../communication';
 import { onError } from '../../hooks/useRoomErrorHandler';
@@ -27,7 +26,7 @@ const mediaSourceStore = useMediaSourcesStore();
 
 interface RoomState {
   localUser: TUILiveUserInfo,
-  remoteUserObj: Record<string, TUILiveUserInfo>,
+  remoteUserList: Array<TUILiveUserInfo>,
   masterUserId: string,
   canControlSelfAudio: boolean;
   canControlSelfVideo: boolean;
@@ -55,7 +54,7 @@ export const useRoomStore = defineStore('room', {
       userRole: TUIRole.kRoomOwner,
       onSeat: false,
     },
-    remoteUserObj: {},
+    remoteUserList: [],
     masterUserId: '',
     canControlSelfAudio: true,
     canControlSelfVideo: true,
@@ -78,14 +77,18 @@ export const useRoomStore = defineStore('room', {
     isMaster(state) {
       return state.localUser.userId === state.masterUserId;
     },
-    remoteUserList(): Array<TUILiveUserInfo> {
-      return [...Object.values(this.remoteUserObj)];
+    first200RemoteUserList(state){
+      if (state.remoteUserList.length <= 200) {
+        return state.remoteUserList;
+      } else {
+        return state.remoteUserList.slice(0, 200);
+      }
     },
-    applyToAnchorList: state => [...Object.values(state.remoteUserObj)]
+    applyToAnchorList: state => state.remoteUserList
       .filter(item => item.isUserApplyingToAnchor)
       .sort((item1, item2) => (item1?.applyToAnchorTimestamp || 0) - (item2?.applyToAnchorTimestamp || 0)) || [],
     anchorList: state => {
-      const tempList = [...Object.values(state.remoteUserObj)].filter(item => item.onSeat);
+      const tempList = state.remoteUserList.filter(item => item.onSeat);
       return tempList.sort((item1, item2) => (item1?.onSeatTimestamp || 0) - (item2?.onSeatTimestamp || 0));
     },
   },
@@ -137,11 +140,12 @@ export const useRoomStore = defineStore('room', {
         return;
       }
 
-      if (this.remoteUserObj[userId]) {
-        Object.assign(this.remoteUserObj[userId], userInfo);
+      const userIndex= this.remoteUserList.findIndex(item => item.userId === userId);
+      if (userIndex !== -1) {
+        Object.assign(this.remoteUserList[userIndex], userInfo);
       } else {
         const newUserInfo = Object.assign(this.getNewUserInfo(userId), userInfo);
-        this.remoteUserObj[userId] = newUserInfo;
+        this.remoteUserList.push(newUserInfo);
       }
 
       const chatStore = useChatStore();
@@ -158,17 +162,15 @@ export const useRoomStore = defineStore('room', {
       });
     },
     removeRemoteUser(userId: string) {
-      del(this.remoteUserObj, userId);
-      for(let i = 0; i < this.remoteUserList.length; i++) {
-        if (userId === this.remoteUserList[i].userId) {
-          this.remoteUserList.splice(i, 1);
-          break;
-        }
+      const userIndex = this.remoteUserList.findIndex(item => item.userId === userId);
+      if (userIndex !== -1) {
+        this.remoteUserList.splice(userIndex, 1);
       }
     },
     addApplyToAnchorUser(options: { userId: string, requestId: string, timestamp: number }) {
       const { userId, requestId, timestamp } = options;
-      const remoteUserInfo = this.remoteUserObj[userId];
+      const userIndex = this.remoteUserList.findIndex(item => item.userId === userId);
+      const remoteUserInfo = userIndex !== -1 ? this.remoteUserList[userIndex] : null;
       if (remoteUserInfo) {
         remoteUserInfo.isUserApplyingToAnchor = true;
         remoteUserInfo.applyToAnchorRequestId = requestId;
@@ -181,7 +183,8 @@ export const useRoomStore = defineStore('room', {
       });
     },
     removeApplyToAnchorUser(userId: string) {
-      const remoteUserInfo = this.remoteUserObj[userId];
+      const userIndex = this.remoteUserList.findIndex(item => item.userId === userId);
+      const remoteUserInfo = userIndex !== -1 ? this.remoteUserList[userIndex] : null;
       if (remoteUserInfo) {
         remoteUserInfo.isUserApplyingToAnchor = false;
         remoteUserInfo.applyToAnchorRequestId = '';
@@ -195,7 +198,8 @@ export const useRoomStore = defineStore('room', {
       }
     },
     async handleApplyToAnchorUser(userId: string, agree: boolean) {
-      const remoteUserInfo = this.remoteUserObj[userId];
+      const userIndex = this.remoteUserList.findIndex(item => item.userId === userId);
+      const remoteUserInfo = userIndex !== -1 ? this.remoteUserList[userIndex] : null;
       if (remoteUserInfo) {
         try {
           const requestId = remoteUserInfo.applyToAnchorRequestId;
@@ -244,12 +248,12 @@ export const useRoomStore = defineStore('room', {
         if (userId === this.localUser.userId) {
           Object.assign(this.localUser, { onSeat: true });
         } else {
-          const user = this.remoteUserObj[userId];
-          if (user) {
-            Object.assign(user, { onSeat: true });
+          const userIndex = this.remoteUserList.findIndex(item => item.userId === userId);
+          if (userIndex !== -1) {
+            Object.assign(this.remoteUserList[userIndex], { onSeat: true });
           } else {
             const newUserInfo = Object.assign(this.getNewUserInfo(userId), { onSeat: true });
-            set(this.remoteUserObj, userId, newUserInfo);
+            this.remoteUserList.push(newUserInfo);
           }
         }
       });
@@ -259,8 +263,10 @@ export const useRoomStore = defineStore('room', {
           const basicStore = useBasicStore();
           basicStore.setIsOpenMic(false);
         } else {
-          const user = this.remoteUserObj[seat.userId];
-          user && Object.assign(user, { onSeat: false });
+          const userIndex = this.remoteUserList.findIndex(item => item.userId === seat.userId);
+          if (userIndex !== -1) {
+            Object.assign(this.remoteUserList[userIndex], { onSeat: false });
+          }
         }
       });
 
@@ -365,7 +371,7 @@ export const useRoomStore = defineStore('room', {
         userRole: TUIRole.kRoomOwner,
         onSeat: false,
       };
-      this.remoteUserObj = {};
+      this.remoteUserList = [];
       this.masterUserId = '';
       this.canControlSelfAudio = true;
       this.canControlSelfVideo = true;

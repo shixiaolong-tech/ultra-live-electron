@@ -44,15 +44,21 @@ export const useChatStore = defineStore('chat', {
   },
   actions: {
     updateMessageList(message: MessageItem) {
-      const messageIds = this.messageList.map(message => message.ID);
-      if (messageIds.indexOf(message.ID) === -1) {
-        this.messageList = this.messageList.concat([message]);
+      const messageIndex = this.messageList.findIndex(item => item.ID === message.ID);
+      if (messageIndex === -1) {
+        if (this.messageList.length >= 200) {
+          this.messageList.shift();
+        }
+        this.messageList.push(message);
       }
     },
-    updateGiftList(message: GiftItem) {
-      const messageIds = this.giftList.map(message => message.ID);
-      if (messageIds.indexOf(message.ID) === -1) {
-        this.giftList = this.giftList.concat([message]);
+    updateGiftList(gift: GiftItem) {
+      const giftIndex = this.giftList.findIndex(item => item.ID === gift.ID);
+      if (giftIndex === -1) {
+        if (this.giftList.length >= 200) {
+          this.giftList.shift();
+        }
+        this.giftList.push(gift);
       }
     },
     reset() {
