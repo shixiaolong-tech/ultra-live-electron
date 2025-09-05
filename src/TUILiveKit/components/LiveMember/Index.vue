@@ -4,8 +4,8 @@
       {{t('Online audience')}}
     </div>
     <div class="tui-member-list">
-      <template v-if="remoteUserList.length">
-        <div v-for="item in remoteUserList" :key="item.userId" class="tui-member-item">
+      <template v-if="first200RemoteUserList.length">
+        <div v-for="item in first200RemoteUserList" :key="item.userId" class="tui-member-item">
           <img class="tui-user-avatar" :src="item.avatarUrl || defaultAvatarURL" alt="">
           <span class="tui-user-name">{{item.userName || item.userId}}</span>
           <span class="tui-user-level">{{ 0 }}</span>
@@ -25,7 +25,7 @@ import { defaultAvatarURL } from '../../utils/common';
 
 const { t } = useI18n();
 const roomStore = useRoomStore()
-const { remoteUserList }  = storeToRefs(roomStore);
+const { first200RemoteUserList }  = storeToRefs(roomStore);
 
 </script>
 <style scoped lang="scss">
