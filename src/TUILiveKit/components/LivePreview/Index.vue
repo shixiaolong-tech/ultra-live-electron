@@ -23,16 +23,17 @@ import { storeToRefs } from 'pinia';
 import { Rect, TRTCMediaSource, TRTCMediaMixingEvent, TRTCMediaMixingServiceEvent, TRTCRoleType, TRTCParams, TRTCAppScene } from 'trtc-electron-sdk';
 import trtcCloud from '../../utils/trtcCloud';
 import useRoomEngine from '../../utils/useRoomEngine';
+import { useI18n } from '../../locales/index';
 import { TUIMediaSourceViewModel } from '../../types';
+import { MEDIA_SOURCE_STORAGE_KEY } from '../../constants/tuiConstant';
 import useMediaMixingManager, { mediaMixingService } from '../../utils/useMediaMixingManager';
 import TUIMessageBox from '../../common/base/MessageBox';
 import { useBasicStore } from '../../store/main/basic';
 import { useRoomStore } from '../../store/main/room';
-import { useMediaSourcesStore } from '../../store/main/mediaSources';
+import { TUIMediaSourcesState, useMediaSourcesStore } from '../../store/main/mediaSources';
+import { useAudioEffectStore } from '../../store/main/audioEffect';
 import useContextMenu from './useContextMenu';
-import { useI18n } from '../../locales/index';
 import streamLayoutService from '../../service/StreamLayoutService';
-import { useAudioEffectStore } from '@/TUILiveKit/store/main/audioEffect';
 import logger from '../../utils/logger';
 
 const logPrefix = '[LivePreview]';
@@ -88,6 +89,20 @@ watch(
   }
 );
 
+const recoverMediaSourceFromLocalStorage = () => {
+  const storedMediaStateStr = window.localStorage.getItem(MEDIA_SOURCE_STORAGE_KEY);
+  if (storedMediaStateStr) {
+    logger.log(`${logPrefix}restore media state:`, storedMediaStateStr);
+    try {
+      const storedMediaState: TUIMediaSourcesState = JSON.parse(storedMediaStateStr);
+      roomStore.restoreMediaSource(storedMediaState);
+    } catch (error) {
+      logger.warn(`${logPrefix}invalid store media source state:`, storedMediaStateStr, error);
+      window.localStorage.removeItem(MEDIA_SOURCE_STORAGE_KEY);
+    }
+  }
+};
+
 const MAX_START_PREVIEW_COUNT= 50;
 let startPreviewRetryCount = 0;
 // eslint-disable-next-line no-undef
@@ -112,7 +127,7 @@ const startMediaMixingPreview = async () => {
 
   if (!isNativeWindowCreated.value) {
     if (!!window.nativeWindowHandle && nativeWindowsRef.value && isServerStarted.value) {
-      mediaMixingManager.bindPreviewArea(window.nativeWindowHandle, nativeWindowsRef.value);
+      await mediaMixingManager.bindPreviewArea(0, nativeWindowsRef.value);
       isNativeWindowCreated.value = true;
       const { mixingVideoEncodeParam, backgroundColor, selectedBorderColor } = mediaSourcesStore;
       await mediaMixingManager.startPublish();
@@ -122,6 +137,7 @@ const startMediaMixingPreview = async () => {
         selectedBorderColor
       });
       streamLayoutService.setContainer(nativeWindowsRef.value);
+      recoverMediaSourceFromLocalStorage();
     } else {
       startPreviewRetryTimer = setTimeout(()=>{
         startMediaMixingPreview();
@@ -164,7 +180,7 @@ const onMediaMixingServerLost = async () => {
     try {
       await mediaMixingService?.startMediaMixingServer();
       isServerStarted.value = true;
-      mediaMixingManager.bindPreviewArea(window.nativeWindowHandle, nativeWindowsRef.value);
+      await mediaMixingManager.bindPreviewArea(0, nativeWindowsRef.value);
       const { mixingVideoEncodeParam, backgroundColor, selectedBorderColor } = mediaSourcesStore;
       await mediaMixingManager.startPublish();
       await mediaMixingManager.updatePublishParams({

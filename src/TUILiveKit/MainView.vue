@@ -64,7 +64,7 @@ import { initCommunicationChannels, messageChannels } from './communication';
 import { useBasicStore } from './store/main/basic';
 import { useRoomStore } from './store/main/room';
 import { useChatStore } from './store/main/chat';
-import { useMediaSourcesStore, TUIMediaSourcesState } from './store/main/mediaSources';
+import { useMediaSourcesStore } from './store/main/mediaSources';
 import { useAudioEffectStore } from './store/main/audioEffect';
 import useDeviceManager from './utils/useDeviceManager';
 import useMediaMixingManager from './utils/useMediaMixingManager';
@@ -74,7 +74,6 @@ import { useI18n } from './locales/index';
 import useMessageHook from './components/LiveMessage/useMessageHook';
 import useErrorHandler from './hooks/useRoomErrorHandler';
 import useMediaEventhander from './hooks/useMediaEventHandler';
-import { MEDIA_SOURCE_STORAGE_KEY } from './constants/tuiConstant';
 import logger from './utils/logger';
 
 
@@ -461,22 +460,6 @@ onBeforeUnmount(() => {
   }
 });
 // ***************** Device event listener end *****************
-
-// ***************** Media source restore start *****************
-onMounted(() => {
-  const storedMediaStateStr = window.localStorage.getItem(MEDIA_SOURCE_STORAGE_KEY);
-  if (storedMediaStateStr) {
-    logger.log(`${logPrefix}restore media state:`, storedMediaStateStr);
-    try {
-      const storedMediaState: TUIMediaSourcesState = JSON.parse(storedMediaStateStr);
-      roomStore.restoreMediaSource(storedMediaState);
-    } catch (error) {
-      logger.warn(`${logPrefix}invalid store media source state:`, storedMediaStateStr, error);
-      window.localStorage.removeItem(MEDIA_SOURCE_STORAGE_KEY);
-    }
-  }
-});
-// ***************** Media source restore end *****************
 </script>
 
 <style lang="scss">
