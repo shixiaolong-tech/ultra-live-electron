@@ -151,7 +151,7 @@ const onLogout = async () => {
   if (basicStore.isLiving) {
     await stopLiving();
   }
-  mediaMixingManager.bindPreviewArea(0, null);
+  await mediaMixingManager.bindPreviewArea(0, null);
   basicStore.reset();
   roomStore.reset();
   chatStore.reset();
