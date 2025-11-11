@@ -155,8 +155,8 @@ async function createWindow(width = 1366, height = 668) {
   });
   windowMap.confirm = new BrowserWindow({
     show: false,
-    width: 360,
-    height: 180,
+    width: 480,
+    height: 160,
     frame: false,
     transparent: false,
     resizable: false,
@@ -248,6 +248,7 @@ function bindIPCEvent() {
     const [width, height] = windowMap.main?.getSize();
     switch (args.command) {
     case 'camera':
+    case 'user-profile':
       windowMap.child?.setSize(600, 650, true);
       windowMap.child?.setContentSize(600, 650, true);
       break;
@@ -259,7 +260,11 @@ function bindIPCEvent() {
       windowMap.child?.setSize(width - 150, height - 80, true);
       windowMap.child?.setContentSize(width -150, height - 80, true);
       break;
-    case 'connection':
+    case 'co-guest-connection':
+    case 'co-host-connection':
+      windowMap.child?.setSize(520, 560, true);
+      windowMap.child?.setContentSize(520, 560, true);
+      break;
     case 'add-bgm':
     case 'reverb-voice':
     case 'change-voice':
@@ -328,6 +333,12 @@ function bindIPCEvent() {
     const port = event.ports[0];
     console.log('port-to-cover', port);
     windowMap.mainCover?.webContents.postMessage('port-to-cover', null, [port]);
+  });
+
+  ipcMain.on('port-to-confirm', (event) => {
+    const port = event.ports[0];
+    console.log('port-to-confirm', port);
+    windowMap.confirm?.webContents.postMessage('port-to-confirm', null, [port]);
   });
 
   ipcMain.on('set-language', (event, args) => {
@@ -421,7 +432,7 @@ function bindIPCEvent() {
     if (args?.layoutMode === 'Custom') {
       if (windowMap.main.isVisible() && !windowMap.mainCover.isVisible()) {
         windowMap.mainCover?.show();
-        if (lastChildWindowCommand === 'connection') {
+        if (lastChildWindowCommand === 'co-guest-connection' || lastChildWindowCommand === 'co-host-connection') {
           windowMap.child.show();
         }
       }
@@ -550,10 +561,10 @@ function bindChildWindowEvent() {
 
   windowMap.child?.webContents.on('did-finish-load', function(){
     console.log(`${logPrefix}child window: did-finish-load`);
-    windowMap.child?.webContents.executeJavaScript('window.location.hash = \'/tui-live-kit-child\';');
     windowMap.child?.webContents.send('app-path', app.getAppPath());
     windowMap.child?.webContents.send('native-window-handle', windowMap.child?.getNativeWindowHandle());
     windowMap.child?.webContents.send('window-type', 'child');
+    windowMap.child?.webContents.executeJavaScript('window.location.hash = \'/tui-live-kit-child\';');
   });
 
   windowMap.child?.on('close', (event) => {
@@ -594,10 +605,10 @@ function bindCoverWindowEvent() {
 
   windowMap.mainCover?.webContents.on('did-finish-load', function(){
     console.log(`${logPrefix}child window: did-finish-load`);
-    windowMap.mainCover?.webContents.executeJavaScript('window.location.hash = \'/tui-live-kit-cover\';');
     windowMap.mainCover?.webContents.send('app-path', app.getAppPath());
     windowMap.mainCover?.webContents.send('native-window-handle', windowMap.mainCover?.getNativeWindowHandle());
     windowMap.mainCover?.webContents.send('window-type', 'cover');
+    windowMap.mainCover?.webContents.executeJavaScript('window.location.hash = \'/tui-live-kit-cover\';');
   });
 
   windowMap.mainCover?.on('focus', () => {
@@ -617,10 +628,10 @@ function bindConfirmWindowEvent() {
 
   windowMap.confirm?.webContents.on('did-finish-load', function(){
     console.log(`${logPrefix}child window: did-finish-load`);
-    windowMap.confirm?.webContents.executeJavaScript('window.location.hash = \'/tui-live-kit-confirm\';');
     windowMap.confirm?.webContents.send('app-path', app.getAppPath());
     windowMap.confirm?.webContents.send('native-window-handle', windowMap.confirm?.getNativeWindowHandle());
     windowMap.confirm?.webContents.send('window-type', 'confirm');
+    windowMap.confirm?.webContents.executeJavaScript('window.location.hash = \'/tui-live-kit-confirm\';');
   });
 }
 

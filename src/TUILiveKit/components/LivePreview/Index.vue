@@ -4,6 +4,7 @@
       <div class="tui-title-left">
         <span>{{ roomName }}</span>
         <span class="tui-title-room-id">{{ roomId }}</span>
+        <svg-icon v-if="roomId" class="tui-copy-icon" :icon="CopyIcon" @click="copyLiveInfo"/>
       </div>
       <div class="tui-title-right">
         <span class="tui-statis-item tui-online-count">{{ remoteUserList.length }}{{ t("viewer") }}</span>
@@ -21,18 +22,23 @@
 import { ref, Ref, watch, defineEmits, onBeforeMount, onMounted, onBeforeUnmount, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { Rect, TRTCMediaSource, TRTCMediaMixingEvent, TRTCMediaMixingServiceEvent, TRTCRoleType, TRTCParams, TRTCAppScene } from 'trtc-electron-sdk';
+import { TUIToast, TOAST_TYPE } from '@tencentcloud/uikit-base-component-vue3';
 import trtcCloud from '../../utils/trtcCloud';
 import useRoomEngine from '../../utils/useRoomEngine';
 import { TUIMediaSourceViewModel } from '../../types';
+import { useI18n } from '../../locales/index';
 import useMediaMixingManager, { mediaMixingService } from '../../utils/useMediaMixingManager';
 import TUIMessageBox from '../../common/base/MessageBox';
+import SvgIcon from '../../common/base/SvgIcon.vue';
+import CopyIcon from '../../common/icons/CopyIcon.vue';
 import { useBasicStore } from '../../store/main/basic';
+import { useAudioEffectStore } from '../../store/main/audioEffect';
 import { useRoomStore } from '../../store/main/room';
-import { useMediaSourcesStore } from '../../store/main/mediaSources';
+import { TUIMediaSourcesState, useMediaSourcesStore } from '../../store/main/mediaSources';
+import { useDeviceStore } from '../../store/main/device';
 import useContextMenu from './useContextMenu';
-import { useI18n } from '../../locales/index';
 import streamLayoutService from '../../service/StreamLayoutService';
-import { useAudioEffectStore } from '@/TUILiveKit/store/main/audioEffect';
+import { MEDIA_SOURCE_STORAGE_KEY } from '../../constants/tuiConstant';
 import logger from '../../utils/logger';
 
 const logPrefix = '[LivePreview]';
@@ -42,11 +48,13 @@ const emits = defineEmits(['edit-media-source']);
 const { t } = useI18n();
 const basicStore = useBasicStore();
 const roomStore = useRoomStore();
+const deviceStore = useDeviceStore();
 const mediaSourcesStore = useMediaSourcesStore();
 const audioEffectStore = useAudioEffectStore();
 
-const { roomName, roomId } = storeToRefs(basicStore);
+const { roomName, roomId, phone, sdkAppId } = storeToRefs(basicStore);
 const { remoteUserList } = storeToRefs(roomStore);
+const { cameraList, microphoneList, speakerList} = storeToRefs(deviceStore);
 const { mediaList, selectedMediaKey } = storeToRefs(mediaSourcesStore);
 
 const mediaMixingManager = useMediaMixingManager();
@@ -88,6 +96,47 @@ watch(
   }
 );
 
+const copyLiveInfo = async () => {
+  if (!roomId.value) {
+    logger.warn(`${logPrefix}copyLiveInfo: no room ID`);
+    return;
+  }
+
+  let liveInfo = '';
+  if (phone.value) {
+    liveInfo = `${roomName.value} ${roomId.value}`;
+  } else {
+    liveInfo = `https://web.sdk.qcloud.com/trtc/livekit/player/index.html#/live-player?liveId=${roomId.value}&sdkAppId=${sdkAppId.value}`;
+  }
+
+  try {
+    await navigator.clipboard.writeText(liveInfo);
+    TUIToast({
+      message: t('Copy successfully'),
+      type: TOAST_TYPE.SUCCESS,
+    });
+  } catch (error) {
+    TUIToast({
+      message: t('Copy failed'),
+      type: TOAST_TYPE.ERROR,
+    });
+  }
+};
+
+const recoverMediaSourceFromLocalStorage = () => {
+  const storedMediaStateStr = window.localStorage.getItem(MEDIA_SOURCE_STORAGE_KEY);
+  if (storedMediaStateStr) {
+    logger.log(`${logPrefix}restore media state:`, storedMediaStateStr);
+    try {
+      const storedMediaState: TUIMediaSourcesState = JSON.parse(storedMediaStateStr);
+      roomStore.restoreMediaSource(storedMediaState);
+    } catch (error) {
+      logger.warn(`${logPrefix}invalid store media source state:`, storedMediaStateStr, error);
+      window.localStorage.removeItem(MEDIA_SOURCE_STORAGE_KEY);
+    }
+  }
+};
+
 const MAX_START_PREVIEW_COUNT= 50;
 let startPreviewRetryCount = 0;
 // eslint-disable-next-line no-undef
@@ -113,7 +162,7 @@ const startMediaMixingPreview = async () => {
   if (!isNativeWindowCreated.value) {
     if (!!window.nativeWindowHandle && nativeWindowsRef.value && isServerStarted.value) {
       try {
-        mediaMixingManager.bindPreviewArea(window.nativeWindowHandle, nativeWindowsRef.value);
+        await mediaMixingManager.bindPreviewArea(window.nativeWindowHandle, nativeWindowsRef.value);
         isNativeWindowCreated.value = true;
         const { mixingVideoEncodeParam, backgroundColor, selectedBorderColor } = mediaSourcesStore;
         await mediaMixingManager.startPublish();
@@ -123,6 +172,7 @@ const startMediaMixingPreview = async () => {
           selectedBorderColor: parseInt(selectedBorderColor.substring(1), 16)
         });
         streamLayoutService.setContainer(nativeWindowsRef.value);
+        recoverMediaSourceFromLocalStorage();
       } catch (err) {
         logger.error(`${logPrefix}startMediaMixingPreview failed:`, err);
         startPreviewRetryTimer = setTimeout(()=>{
@@ -171,7 +221,7 @@ const onMediaMixingServerLost = async () => {
     try {
       await mediaMixingService?.startMediaMixingServer();
       isServerStarted.value = true;
-      mediaMixingManager.bindPreviewArea(window.nativeWindowHandle, nativeWindowsRef.value);
+      await mediaMixingManager.bindPreviewArea(window.nativeWindowHandle, nativeWindowsRef.value);
       const { mixingVideoEncodeParam, backgroundColor, selectedBorderColor } = mediaSourcesStore;
       await mediaMixingManager.startPublish();
       await mediaMixingManager.updatePublishParams({
@@ -190,7 +240,7 @@ const onMediaMixingServerLost = async () => {
         trtcParams.role = TRTCRoleType.TRTCRoleAnchor;
         trtcCloud.enterRoom(trtcParams, TRTCAppScene.TRTCAppSceneLIVE);
       }
-      if (basicStore.isOpenMic) {
+      if (basicStore.isOpenMic && microphoneList.value?.length > 0) {
         roomEngine.instance?.unmuteLocalAudio();
         roomEngine.instance?.openLocalMicrophone();
       }
@@ -290,6 +340,17 @@ onUnmounted(async ()=> {
 
       .tui-title-room-id {
         margin-left: 0.5rem;
+      }
+
+      .tui-copy-icon {
+        margin-left: 0.5rem;
+        cursor: pointer;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+
+        &:hover {
+          opacity: 1;
+        }
       }
     }
 

@@ -4,9 +4,8 @@
     <input
       :value="props.loginState.sdkAppId"
       class="tui-login-input"
-      :placeholder="t('SDKAPPID')" auto-complete="true"
-      enterkeyhint="complete"
-      @input="emit('update:sdkAppId', ($event.target  as HTMLInputElement)?.value)"
+      :placeholder="t('Enter SDKAPPID')"
+      @input="handleSdkAppIdInput"
     >
   </div>
   <div class="tui-login-option-input">
@@ -14,8 +13,7 @@
     <input
       :value="props.loginState.userId"
       class="tui-login-input"
-      :placeholder="t('User ID')" auto-complete="true"
-      enterkeyhint="complete"
+      :placeholder="t('Enter user ID')"
       @input="emit('update:userId', ($event.target  as HTMLInputElement)?.value)"
     >
   </div>
@@ -24,8 +22,7 @@
     <input
       :value="props.loginState.sdkSecretKey"
       class="tui-login-input"
-      :placeholder="t('SDK secret key')" auto-complete="true"
-      enterkeyhint="complete"
+      :placeholder="t('SDK secret key')"
       @input="emit('update:sdkSecretKey', ($event.target  as HTMLInputElement)?.value)"
     >
   </div>
@@ -54,6 +51,19 @@ const emit = defineEmits([
   'update:userId',
   'update:sdkSecretKey',
 ]);
+
+const handleSdkAppIdInput = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const value = target.value;
+
+  const numericValue = value.replace(/\D/g, '');
+
+  if (value !== numericValue) {
+    target.value = numericValue;
+  }
+
+  emit('update:sdkAppId', numericValue);
+};
 
 const { t } = useI18n();
 </script>

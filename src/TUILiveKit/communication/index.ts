@@ -24,9 +24,11 @@ let roomStore: any = null;
 export const messageChannels: {
   messagePortToChild: MessagePort|null;
   messagePortToCover: MessagePort|null;
+  messagePortToConfirm: MessagePort|null;
 } = {
   messagePortToChild: null,
   messagePortToCover: null,
+  messagePortToConfirm: null,
 };
 
 export async function addMediaSource(data: Record<string, any>) {
@@ -334,7 +336,7 @@ export async function updateMediaSource(data: Record<string, any>) {
 }
 
 async function handleUserApply(data: Record<string, any>) {
-  const {agree} = data;
+  const { agree } = data;
   const user = JSON.parse(data.user);
   if (user.userId) {
     roomStore.handleApplyToAnchorUser(user.userId, agree);
@@ -505,11 +507,41 @@ async function handleChildWindowMessage(event: MessageEvent<any>) {
       audioEffectStore.setVoiceChangerType(data);
     }
     break;
-  case 'setStreamLayoutMode':
-    roomStore.setStreamLayoutMode(data.layoutMode);
+  case 'setCoGuestLayoutTemplate':
+    roomStore.setCoGuestLayoutTemplate(data.layoutTemplate);
     break;
-  case 'setStreamLayoutAutoAdjust':
-    roomStore.setStreamLayoutAutoAdjust(data.isAutoAdjusting);
+  case 'setCoHostSetting':
+    roomStore.setCoHostSetting(data);
+    break;
+  case 'fetchLiveList':
+    roomStore.fetchLiveList();
+    break;
+  case 'fetchMoreLiveList':
+    roomStore.fetchMoreLiveList();
+    break;
+  case 'requestAnchorConnection':
+    roomStore.requestAnchorConnection(data);
+    break;
+  case 'cancelAnchorConnection':
+    roomStore.cancelAnchorConnection(data);
+    break;
+  case 'stopAnchorConnection':
+    roomStore.stopAnchorConnection();
+    break;
+  case 'startAnchorBattle':
+    roomStore.startAnchorBattle();
+    break;
+  case 'requestAnchorBattle':
+    roomStore.requestAnchorBattle(data);
+    break;
+  case 'cancelAnchorBattle':
+    roomStore.cancelAnchorBattle(data);
+    break;
+  case 'stopAnchorBattle':
+    roomStore.stopAnchorBattle();
+    break;
+  case 'updateUserProfile':
+    roomStore.updateLocalUserProfile(data);
     break;
   default:
     logger.warn(
@@ -572,7 +604,7 @@ export function initCommunicationChannels(data: Record<string, any>) {
     messageChannels.messagePortToChild.start();
     window.ipcRenderer.postMessage('port-to-child', null, [messagePortToMain]);
   } else {
-    logger.warn(`${logPrefix}initCommunicationChannels MessageChannel already existed.`);
+    logger.warn(`${logPrefix}initCommunicationChannels MessageChannel to child window already existed.`);
   }
 
   if (!messageChannels.messagePortToCover) {
@@ -587,6 +619,21 @@ export function initCommunicationChannels(data: Record<string, any>) {
     messageChannels.messagePortToCover.start();
     window.ipcRenderer.postMessage('port-to-cover', null, [messagePortToMain]);
   } else {
-    logger.warn(`${logPrefix}initCommunicationChannels MessageChannel already existed.`);
+    logger.warn(`${logPrefix}initCommunicationChannels MessageChannel to cover window already existed.`);
+  }
+
+  if (!messageChannels.messagePortToConfirm) {
+    const messageChannel = new MessageChannel();
+
+    messageChannels.messagePortToConfirm = messageChannel.port1;
+    const messagePortToMain = messageChannel.port2;
+    messageChannels.messagePortToConfirm.onmessage = handleChildWindowMessage;
+    messageChannels.messagePortToConfirm.onmessageerror =  (event) => {
+      logger.log(`${logPrefix}onmessageerror from confirm window:`, event.data);
+    };
+    messageChannels.messagePortToConfirm.start();
+    window.ipcRenderer.postMessage('port-to-confirm', null, [messagePortToMain]);
+  } else {
+    logger.warn(`${logPrefix}initCommunicationChannels MessageChannel to confirm window already existed.`);
   }
 }

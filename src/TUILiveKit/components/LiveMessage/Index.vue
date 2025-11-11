@@ -83,12 +83,12 @@ const handleMessageListScroll = (e: Event) => {
 };
 
 // message
-watch(messageList, async (newMessageList, oldMessageList) => {
+watch(() => messageList.value, async (newMessageList) => {
   await nextTick();
   if (isScrollNotAtBottom) {
-    if (newMessageList.length >= 1) {
+    if (newMessageList.length >= 2) {
       const lastMessage = newMessageList[newMessageList.length - 1];
-      const oldLastMessage = oldMessageList[oldMessageList.length - 1];
+      const oldLastMessage = newMessageList[newMessageList.length - 2];
       if ((lastMessage as any).flow === 'out'  && lastMessage.ID !== oldLastMessage.ID) {
         /**
          * The latest one was sent by myself
@@ -102,6 +102,8 @@ watch(messageList, async (newMessageList, oldMessageList) => {
    * If you don't scroll all the way to the bottom, show the latest news directly
    */
   messageBottomEl.value && messageBottomEl.value.scrollIntoView();
+}, {
+  deep: true,
 });
 
 // gift
