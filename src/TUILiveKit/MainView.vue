@@ -205,6 +205,10 @@ function _generateRoomId () {
   return `live_${Math.floor(Math.random() * 1000 * 1000)}`;
 }
 
+function onSystemAudioLoopbackError (error: any) {
+  logger.error(`${logPrefix}onSystemAudioLoopbackError:`, error);
+}
+
 async function startLiving () {
   logger.log(`${logPrefix}startLiving`);
   try {
@@ -260,6 +264,11 @@ async function startLiving () {
       roomEngine.instance?.openLocalMicrophone();
       basicStore.setIsOpenMic(true);
 
+      const trtcCloud = roomEngine.instance?.getTRTCCloud();
+      trtcCloud.on('onSystemAudioLoopbackError', onSystemAudioLoopbackError);
+      trtcCloud.startSystemAudioLoopback();
+      trtcCloud.setSystemAudioLoopbackVolume(100);
+
       useMessageHook();
       emit('on-start-living');
     } else {
@@ -287,6 +296,11 @@ async function stopLiving () {
     roomStore.reset();
     chatStore.reset();
     audioEffectStore.reset();
+
+    const trtcCloud = roomEngine.instance?.getTRTCCloud();
+    trtcCloud.stopSystemAudioLoopback();
+    trtcCloud.off('onSystemAudioLoopbackError', onSystemAudioLoopbackError);
+
     window.ipcRenderer.send('close-child');
     messageChannels.messagePortToChild?.postMessage({
       key: 'reset',
