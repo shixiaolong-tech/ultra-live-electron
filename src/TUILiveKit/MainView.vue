@@ -264,7 +264,6 @@ async function startLiving () {
       roomEngine.instance?.openLocalMicrophone();
       basicStore.setIsOpenMic(true);
 
-      const trtcCloud = roomEngine.instance?.getTRTCCloud();
       trtcCloud.on('onSystemAudioLoopbackError', onSystemAudioLoopbackError);
       trtcCloud.startSystemAudioLoopback();
       trtcCloud.setSystemAudioLoopbackVolume(100);
@@ -297,7 +296,6 @@ async function stopLiving () {
     chatStore.reset();
     audioEffectStore.reset();
 
-    const trtcCloud = roomEngine.instance?.getTRTCCloud();
     trtcCloud.stopSystemAudioLoopback();
     trtcCloud.off('onSystemAudioLoopbackError', onSystemAudioLoopbackError);
 
