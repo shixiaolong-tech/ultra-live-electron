@@ -18,13 +18,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, Ref, watch, defineEmits, onBeforeMount, onMounted, onBeforeUnmount, onUnmounted } from 'vue';
+import { ref, Ref, watch, defineEmits, onMounted, onBeforeUnmount, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
-import { Rect, TRTCMediaSource, TRTCMediaMixingEvent, TRTCMediaMixingServiceEvent, TRTCRoleType, TRTCParams, TRTCAppScene } from 'trtc-electron-sdk';
-import trtcCloud from '../../utils/trtcCloud';
-import useRoomEngine from '../../utils/useRoomEngine';
+import { Rect, TRTCMediaSource, TRTCMediaMixingEvent } from 'trtc-electron-sdk';
 import { TUIMediaSourceViewModel } from '../../types';
-import useMediaMixingManager, { mediaMixingService } from '../../utils/useMediaMixingManager';
+import useMediaMixingManager from '../../utils/useMediaMixingManager';
 import TUIMessageBox from '../../common/base/MessageBox';
 import { useBasicStore } from '../../store/main/basic';
 import { useRoomStore } from '../../store/main/room';
@@ -32,7 +30,6 @@ import { useMediaSourcesStore } from '../../store/main/mediaSources';
 import useContextMenu from './useContextMenu';
 import { useI18n } from '../../locales/index';
 import streamLayoutService from '../../service/StreamLayoutService';
-import { useAudioEffectStore } from '@/TUILiveKit/store/main/audioEffect';
 import logger from '../../utils/logger';
 
 const logPrefix = '[LivePreview]';
@@ -43,16 +40,12 @@ const { t } = useI18n();
 const basicStore = useBasicStore();
 const roomStore = useRoomStore();
 const mediaSourcesStore = useMediaSourcesStore();
-const audioEffectStore = useAudioEffectStore();
 
 const { roomName, roomId } = storeToRefs(basicStore);
 const { remoteUserList } = storeToRefs(roomStore);
 const { mediaList, selectedMediaKey } = storeToRefs(mediaSourcesStore);
 
 const mediaMixingManager = useMediaMixingManager();
-const roomEngine = useRoomEngine();
-
-const isServerStarted: Ref<boolean> = ref(false);
 
 const nativeWindowsRef:Ref<HTMLDivElement | null> = ref(null);
 const isNativeWindowCreated: Ref<boolean> = ref(false);
@@ -94,7 +87,7 @@ let startPreviewRetryCount = 0;
 let startPreviewRetryTimer: NodeJS.Timeout | null;
 
 const startMediaMixingPreview = async () => {
-  logger.log(`${logPrefix}startMediaMixingPreview`, window.nativeWindowHandle, nativeWindowsRef.value, isServerStarted.value);
+  logger.log(`${logPrefix}startMediaMixingPreview`, window.nativeWindowHandle, nativeWindowsRef.value);
   if (startPreviewRetryTimer) {
     startPreviewRetryTimer = null;
   }
@@ -111,7 +104,7 @@ const startMediaMixingPreview = async () => {
   }
 
   if (!isNativeWindowCreated.value) {
-    if (!!window.nativeWindowHandle && nativeWindowsRef.value && isServerStarted.value) {
+    if (!!window.nativeWindowHandle && nativeWindowsRef.value) {
       try {
         mediaMixingManager.bindPreviewArea(window.nativeWindowHandle, nativeWindowsRef.value);
         isNativeWindowCreated.value = true;
@@ -164,52 +157,10 @@ const onMoveAndResize = (mediaSource: TRTCMediaSource, rect: Rect) => {
   }
 };
 
-const onMediaMixingServerLost = async () => {
-  logger.log(`${logPrefix}onMediaMixingServerLost`);
-  isServerStarted.value = false;
-  if (isNativeWindowCreated.value && nativeWindowsRef.value) {
-    try {
-      await mediaMixingService?.startMediaMixingServer();
-      isServerStarted.value = true;
-      mediaMixingManager.bindPreviewArea(window.nativeWindowHandle, nativeWindowsRef.value);
-      const { mixingVideoEncodeParam, backgroundColor, selectedBorderColor } = mediaSourcesStore;
-      await mediaMixingManager.startPublish();
-      await mediaMixingManager.updatePublishParams({
-        videoEncoderParams: mixingVideoEncodeParam,
-        canvasColor: parseInt(backgroundColor.substring(1), 16),
-        selectedBorderColor: parseInt(selectedBorderColor.substring(1), 16)
-      });
-      streamLayoutService.refreshLayout();
-      mediaSourcesStore.recoverMediaSource();
-      if (basicStore.roomId && basicStore.isLiving) {
-        const trtcParams = new TRTCParams();
-        trtcParams.sdkAppId = basicStore.sdkAppId;
-        trtcParams.userId = basicStore.userId;
-        trtcParams.userSig = basicStore.userSig;
-        trtcParams.strRoomId = basicStore.roomId;
-        trtcParams.role = TRTCRoleType.TRTCRoleAnchor;
-        trtcCloud.enterRoom(trtcParams, TRTCAppScene.TRTCAppSceneLIVE);
-      }
-      if (basicStore.isOpenMic) {
-        roomEngine.instance?.unmuteLocalAudio();
-        roomEngine.instance?.openLocalMicrophone();
-      }
-      audioEffectStore.initVoiceEffect();
-      audioEffectStore.startPlayMusic();
-      logger.log(`${logPrefix}onMediaMixingServerLost recovery from crash success`);
-    } catch (err) {
-      logger.error(`${logPrefix}onMediaMixingServerLost recovery from crash failed:`, err);
-    }
-  } else {
-    logger.warn(`${logPrefix}onMediaMixingServerLost cannot recovery from crash failed. No parent window.`);
-  }
-};
-
 const onBeforeUnload = () => {
   logger.warn(`${logPrefix}onBeforeUnload`);
   mediaMixingManager.bindPreviewArea(0, null);
   mediaSourcesStore.syncClear();
-  mediaMixingService?.stopMediaMixingServer();
 };
 
 const { contextCommand } = useContextMenu();
@@ -220,13 +171,6 @@ watch(contextCommand, (newVal: string) => {
   } else {
     // Do nothing. other commands have been handled in useContextMenu.
   }
-});
-
-onBeforeMount(async () => {
-  logger.log(`${logPrefix}onBeforeMount`);
-  await mediaMixingService?.startMediaMixingServer();
-  isServerStarted.value = true;
-  logger.log(`${logPrefix}onBeforeMount finished`);
 });
 
 onMounted(() => {
@@ -242,7 +186,6 @@ onMounted(() => {
   mediaMixingManager.on(TRTCMediaMixingEvent.onSourceSelected, onSelect);
   mediaMixingManager.on(TRTCMediaMixingEvent.onSourceMoved, onMoveAndResize);
   mediaMixingManager.on(TRTCMediaMixingEvent.onSourceResized, onMoveAndResize);
-  mediaMixingService?.on(TRTCMediaMixingServiceEvent.onMediaMixingServerLost, onMediaMixingServerLost);
   window.addEventListener('beforeunload', onBeforeUnload);
 });
 
@@ -253,7 +196,6 @@ onBeforeUnmount(()=> {
   mediaMixingManager.off(TRTCMediaMixingEvent.onSourceSelected, onSelect);
   mediaMixingManager.off(TRTCMediaMixingEvent.onSourceMoved, onMoveAndResize);
   mediaMixingManager.off(TRTCMediaMixingEvent.onSourceResized, onMoveAndResize);
-  mediaMixingService?.off(TRTCMediaMixingServiceEvent.onMediaMixingServerLost, onMediaMixingServerLost);
 
   if (startPreviewRetryTimer) {
     clearTimeout(startPreviewRetryTimer);
@@ -266,7 +208,6 @@ onUnmounted(async ()=> {
   try {
     await mediaMixingManager.bindPreviewArea(0, null);
     await mediaSourcesStore.asyncClear();
-    await mediaMixingService?.stopMediaMixingServer();
   } catch (err) {
     logger.error(`${logPrefix}onUnmounted error:`, err);
   }
