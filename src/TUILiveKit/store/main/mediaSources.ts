@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { TRTCMediaSourceType, TRTCMediaSource, TRTCVideoEncParam, TRTCVideoResolutionMode, TRTCCameraCaptureMode, TRTCVideoRotation, TRTCVideoResolution, TRTCVideoMirrorType, TRTCVideoColorRange, TRTCVideoColorSpace, TRTCVideoEncodeComplexity } from 'trtc-electron-sdk';
+import { TRTCMediaSourceType, TRTCMediaSource, TRTCVideoEncParam, TRTCVideoResolutionMode, TRTCCameraCaptureMode, TRTCVideoRotation, TRTCVideoResolution, TRTCVideoMirrorType, TRTCVideoColorRange, TRTCVideoColorSpace, TRTCVideoEncodeComplexity, TRTCVideoFillMode } from 'trtc-electron-sdk';
 import trtcCloud from '../../utils/trtcCloud';
 import { TUIMediaMixingError, TUIMediaSourceViewModel } from '../../types';
 import { defaultCameraCaptureHeight, defaultCameraCaptureWidth } from '../../constants/tuiConstant';
@@ -32,6 +32,7 @@ export type TUIMediaSourcesState = {
   mediaList: Array<TUIMediaSourceViewModel>; // 'zOrder' desc order
   selectedMediaKey: TUISelectedMediaKey;
   isHevcEncodeEnabled: boolean;
+  previewFillMode: TRTCVideoFillMode;
 }
 
 function isSameMediaSource(mediaSource1: TUISelectedMediaKey | TRTCMediaSource, mediaSource2: TUISelectedMediaKey | TRTCMediaSource) {
@@ -103,6 +104,7 @@ export const useMediaSourcesStore = defineStore('mediaSources', {
       sourceId: '',
     },
     isHevcEncodeEnabled: false,
+    previewFillMode: TRTCVideoFillMode.TRTCVideoFillMode_Fit,
   }),
   getters:{
     isSourceExisted(state) {
@@ -636,6 +638,10 @@ export const useMediaSourcesStore = defineStore('mediaSources', {
         }
       }));
       this.saveState();
+    },
+    updatePreviewFillMode(fillMode: TRTCVideoFillMode) {
+      this.previewFillMode = fillMode;
+      streamLayoutService.updatePreviewFillMode(fillMode);
     },
     recoverMediaSource() {
       this.mediaList.forEach(async (mediaSource) => {

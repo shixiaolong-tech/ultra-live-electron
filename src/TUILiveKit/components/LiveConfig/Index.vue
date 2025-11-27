@@ -172,6 +172,7 @@
       </div>
       <div class="options-container" style="display: inline-flex;flex-direction:row;">
         <TUISwitch :model-value="isHevcEncodeEnabled" label="H265" @update:modelValue="toggleHevcMode"></TUISwitch>
+        <TUISwitch :model-value="fillMode" label="Fill Mode" @update:modelValue="toggleFillMode"></TUISwitch>
       </div>
       <div class="options-container">
         <span class="options-container-title">{{t('Selected border color')}}</span>
@@ -183,7 +184,7 @@
 <script setup lang="ts">
 import { ref, Ref, shallowRef, defineEmits } from 'vue';
 import { storeToRefs } from 'pinia';
-import { TRTCMediaSourceType, TRTCVideoResolution, TRTCVideoColorRange, TRTCVideoColorSpace, TRTCVideoEncodeComplexity } from 'trtc-electron-sdk';
+import { TRTCMediaSourceType, TRTCVideoResolution, TRTCVideoColorRange, TRTCVideoColorSpace, TRTCVideoEncodeComplexity, TRTCVideoFillMode } from 'trtc-electron-sdk';
 import { TUIMediaMixingError, TUIMediaSourceViewModel } from '../../types';
 import SvgIcon from '../../common/base/SvgIcon.vue';
 import TUISwitch from '../../common/base/Switch.vue';
@@ -466,6 +467,12 @@ const handleStopDrag = (event: MouseEvent) => {
 
 const toggleHevcMode = (value: boolean) => {
   mediaSourcesStore.updateHevcEncodeState(value);
+}
+
+const fillMode = ref(false);
+const toggleFillMode = (value: boolean) => {
+  fillMode.value = value;
+  mediaSourcesStore.updatePreviewFillMode(fillMode.value ? TRTCVideoFillMode.TRTCVideoFillMode_Fill : TRTCVideoFillMode.TRTCVideoFillMode_Fit);
 }
 
 const onChangeBgColor = (value: number) => {

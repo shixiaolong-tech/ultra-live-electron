@@ -6,6 +6,7 @@ import useMediaMixingManager from '../utils/useMediaMixingManager';
 import useRoomEngine from '../utils/useRoomEngine';
 import { messageChannels } from '../communication';
 import logger from '../utils/logger';
+import { debounce } from '../utils/utils';
 
 const mediaMixingManager = useMediaMixingManager();
 const roomEngine = useRoomEngine();
@@ -47,9 +48,11 @@ export class StreamLayoutService {
 
   private userSeatStreamRegions: Array<TUIUserSeatStreamRegion>;
 
+  private previewFillMode: TRTCVideoFillMode = TRTCVideoFillMode.TRTCVideoFillMode_Fit;
+
   constructor() {
     this.roomId = '';
-    this.roomOwner = '',
+    this.roomOwner = '';
     this.container = null;
     this.layoutMode = TUIStreamLayoutMode.None;
     this.isAutoAdjusting = true;
@@ -65,7 +68,7 @@ export class StreamLayoutService {
     this.bindEvent();
 
     this.resizeObserver = null;
-    this.onResize = this.onResize.bind(this);
+    this.onResize = debounce(this.onResize.bind(this), 100);
 
     this.updateResolutionSize();
 
@@ -152,6 +155,11 @@ export class StreamLayoutService {
     }
   }
 
+  updatePreviewFillMode(fillMode: TRTCVideoFillMode): void {
+    this.previewFillMode = fillMode;
+    this.setStreamLayout();
+  }
+
   private onSeatLayoutChanged(options: {roomId: string, seatLayout: TUISeatLayout}) {
     const { roomId, seatLayout } = options;
     logger.log(`${this.logPrefix}onSeatLayoutChanged:`, roomId, seatLayout);
@@ -215,7 +223,7 @@ export class StreamLayoutService {
     }
 
     logger.log(`${this.logPrefix}setStreamLayout:`, JSON.stringify(this.streamLayout));
-    mediaMixingManager.setStreamLayout(this.streamLayout);
+    // mediaMixingManager.setStreamLayout(this.streamLayout);
 
     if (messageChannels.messagePortToCover) {
       messageChannels.messagePortToCover.postMessage({
@@ -316,7 +324,7 @@ export class StreamLayoutService {
         right: Math.round(previewRight),
         bottom: Math.round(previewBottom),
       },
-      fillMode: TRTCVideoFillMode.TRTCVideoFillMode_Fit,
+      fillMode: this.previewFillMode,
       zOrder: 0
     }
     this.streamLayout.userList = [userStream];

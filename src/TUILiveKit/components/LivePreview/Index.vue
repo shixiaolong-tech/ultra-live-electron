@@ -20,7 +20,7 @@
 <script setup lang="ts">
 import { ref, Ref, watch, defineEmits, onMounted, onBeforeUnmount, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
-import { Rect, TRTCMediaSource, TRTCMediaMixingEvent } from 'trtc-electron-sdk';
+import { Rect, TRTCMediaSource, TRTCMediaMixingEvent, TRTCStreamLayoutMode } from 'trtc-electron-sdk';
 import { useI18n } from '../../locales/index';
 import { TUIMediaSourceViewModel } from '../../types';
 import { MEDIA_SOURCE_STORAGE_KEY } from '../../constants/tuiConstant';
@@ -44,7 +44,7 @@ const mediaSourcesStore = useMediaSourcesStore();
 
 const { roomName, roomId } = storeToRefs(basicStore);
 const { remoteUserList } = storeToRefs(roomStore);
-const { mediaList, selectedMediaKey } = storeToRefs(mediaSourcesStore);
+const { mediaList, selectedMediaKey, previewFillMode } = storeToRefs(mediaSourcesStore);
 
 const mediaMixingManager = useMediaMixingManager();
 
@@ -184,6 +184,30 @@ watch(contextCommand, (newVal) => {
   }
 });
 
+watch(previewFillMode, () => {
+  logger.log(`${logPrefix}watch(previewFillMode)`, previewFillMode.value);
+  if (nativeWindowsRef.value) {
+    const width = nativeWindowsRef.value.offsetWidth;
+    const height = nativeWindowsRef.value.offsetHeight;
+    mediaMixingManager.setStreamLayout({
+      layoutMode: TRTCStreamLayoutMode.Custom,
+      userList: [{
+        userId: '',
+        fillMode: previewFillMode.value,
+        rect: {
+          left: 0,
+          top: 0,
+          right: width,
+          bottom: height,
+        },
+        zOrder: 1,
+      }]
+    });
+  } else {
+    logger.error(`${logPrefix}watch(previewFillMode) no nativeWindowsRef`);
+  }
+}, { immediate: true });
+
 onMounted(() => {
   logger.log(`${logPrefix}onMounted create display window`);
   if (moveAndResizeContainerRef.value && nativeWindowsRef.value) {
@@ -257,13 +281,16 @@ onUnmounted(async ()=> {
 
   .tui-live-designer {
     position: relative;
-    height: calc(100% - 2.5rem);
+    // height: calc(100% - 2.5rem);
+    width: calc(100vw - 38rem);
+    height: calc(100vh - 9.75rem);
     overflow: hidden;
   }
 
   .tui-video-player {
     width: 100%;
     height: 100%;
+    overflow: hidden;
   }
 }
 </style>
