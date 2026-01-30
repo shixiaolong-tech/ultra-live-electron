@@ -53,7 +53,7 @@
         </div>
       </div>
     </div>
-    <div class="beauty-setting" v-if="props.withBeauty">
+    <div class="beauty-setting" v-show="props.withBeauty">
       <BeautyConfigPanel :init-value="beautyProperties" @on-change="handleBeautyEffectChange" />
     </div>
   </div>
@@ -243,6 +243,18 @@ watch(props, async (val: Record<string, any>) => {
 
 <style lang="scss" scoped>
 @import "../assets/variable.scss";
+
+.video-tab {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.tui-camera-preview{
+  width: 100%;
+  height: 18rem;
+  overflow: hidden;
+}
 .camera-setting-container{
   width: 100%;
   padding: 0.25rem 0;
@@ -275,13 +287,6 @@ watch(props, async (val: Record<string, any>) => {
   border-radius: 0.5rem;
   overflow: hidden;
 }
-.video-tab {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-}
 .title {
   color: var(--text-color-tertiary);
   font-size: $font-video-setting-tab-size;
@@ -304,11 +309,6 @@ watch(props, async (val: Record<string, any>) => {
     width: 100%;
     height: 100%;
   }
-}
-.tui-camera-preview{
-  width: 100%;
-  height: 12.875rem;
-  overflow: hidden;
 }
 .mirror-container {
   display: flex;
