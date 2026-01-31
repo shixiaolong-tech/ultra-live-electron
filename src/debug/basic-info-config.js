@@ -55,8 +55,8 @@ export function getBasicInfo(userId, sdkAppId, sdkSecretKey) {
     return;
   }
 
-  const realSDKAppID = sdkAppId || SDKAppID;
-  const realSDKSecretKey = sdkSecretKey || SDKSecretKey;
+  const realSDKAppID = SDKAppID;
+  const realSDKSecretKey = SDKSecretKey;
   const realUserId = userId || userInfo.userId;
   const generator = new LibGenerateTestUserSig(realSDKAppID, realSDKSecretKey, EXPIRETIME);
   const userSig = generator.genTestUserSig(realUserId);

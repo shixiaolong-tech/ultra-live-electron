@@ -23,8 +23,8 @@
         </div>
         <div class="tui-login-type-container">
           <span :class="{active:loginType===LoginType.UserAccount}" @click="onChangeLoginType(LoginType.UserAccount)">{{ t('Account Login')}}</span>
-          <span :class="{active:loginType===LoginType.SDKSecretKey}" @click="onChangeLoginType(LoginType.SDKSecretKey)">{{ t('SDK SecretKey Login')}}</span>
-          <span :class="{active:loginType===LoginType.UserSig}" @click="onChangeLoginType(LoginType.UserSig)">{{ t('UserSig Login')}}</span>
+<!--          <span :class="{active:loginType===LoginType.SDKSecretKey}" @click="onChangeLoginType(LoginType.SDKSecretKey)">{{ t('SDK SecretKey Login')}}</span>-->
+<!--          <span :class="{active:loginType===LoginType.UserSig}" @click="onChangeLoginType(LoginType.UserSig)">{{ t('UserSig Login')}}</span>-->
         </div>
         <div class="tui-login-options">
           <secret-key-form v-if="loginType === LoginType.SDKSecretKey"
@@ -98,7 +98,7 @@ const verifyStates:VerifyStates = reactive({
 
 const { t } = useI18n();
 
-const loginType: Ref<LoginType> = ref(LoginType.UserAccount);
+const loginType: Ref<LoginType> = ref(LoginType.SDKSecretKey);
 const isLoggingIn = ref(false);
 
 const onChangeLoginType = (type: LoginType) => {
@@ -128,14 +128,14 @@ async function handleLogin() {
 function validateLoginForm(): boolean {
   let result = true;
   if (loginType.value === LoginType.UserSig || loginType.value === LoginType.SDKSecretKey) {
-    if (loginState.sdkAppId.trim() === '') {
-      TUIMessageBox({
-        title: t('Note'),
-        message: t('Please enter valid SDKAPPID number.'),
-        confirmButtonText: t('Sure'),
-      });
-      result = false;
-    }
+    // if (loginState.sdkAppId.trim() === '') {
+    //   TUIMessageBox({
+    //     title: t('Note'),
+    //     message: t('Please enter valid SDKAPPID number.'),
+    //     confirmButtonText: t('Sure'),
+    //   });
+    //   result = false;
+    // }
     if (loginState.userId.trim() === '') {
       TUIMessageBox({
         title: t('Note'),
@@ -173,14 +173,14 @@ function validateLoginForm(): boolean {
       result = false;
     }
   } else if (loginType.value === LoginType.SDKSecretKey) {
-    if (loginState.sdkSecretKey.trim() === '') {
-      TUIMessageBox({
-        title: t('Note'),
-        message: t('Please enter your SDK secret key!'),
-        confirmButtonText: t('Sure'),
-      });
-      result = false;
-    }
+    // if (loginState.sdkSecretKey.trim() === '') {
+    //   TUIMessageBox({
+    //     title: t('Note'),
+    //     message: t('Please enter your SDK secret key!'),
+    //     confirmButtonText: t('Sure'),
+    //   });
+    //   result = false;
+    // }
   }
   return result;
 }
@@ -237,7 +237,7 @@ async function doUserSigLogin() {
 
 async function doSDKSecretKeyLogin() {
   const { sdkAppId, userId, userSig, userName, avatarUrl }
-    = getBasicInfo(loginState.userId.trim(), Number(loginState.sdkAppId.trim()), loginState.sdkSecretKey.trim());
+    = getBasicInfo(loginState.userId.trim(), 0, '');
   window.localStorage.setItem('TUILiveKit-userInfo', JSON.stringify({
     sdkAppId,
     userId,
