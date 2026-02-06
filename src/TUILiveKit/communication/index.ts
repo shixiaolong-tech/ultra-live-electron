@@ -45,7 +45,8 @@ export async function addMediaSource(data: Record<string, any>) {
         top: 0,
         right: data.width || defaultCameraCaptureWidth,
         bottom: data.height || defaultCameraCaptureHeight,
-      }
+      },
+      isSelected: true,
     },
   };
   if (data.type === TRTCMediaSourceType.kCamera) {
@@ -77,7 +78,7 @@ export async function addMediaSource(data: Record<string, any>) {
     logger.log(`${logPrefix}addMediaSource:`, mediaSource);
     try {
       await mediaSourcesStore.addMediaSource(mediaSource);
-      await mediaSourcesStore.selectMediaSource(mediaSource);
+      // await mediaSourcesStore.selectMediaSource(mediaSource);
     } catch (error) {
       onMediaMixingError(error as TUIMediaMixingError);
     }

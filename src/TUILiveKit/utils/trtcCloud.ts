@@ -5,4 +5,6 @@ const trtcCloud  = TRTCCloud.getTRTCShareInstance({
 });
 trtcCloud.setLogLevel(TRTCLogLevel.TRTCLogLevelDebug);
 
+(window as any)._trtcCloud = trtcCloud
+
 export default trtcCloud;

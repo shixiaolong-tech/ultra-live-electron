@@ -4,6 +4,8 @@ import { onError } from '../hooks/useMediaMixingErrorHandler';
 
 const mediaMixingManager: TRTCMediaMixingManager | null = trtcCloud.getMediaMixingManager();
 
+(window as any)._mediaMixingManager = mediaMixingManager;
+
 mediaMixingManager?.on(TRTCMediaMixingEvent.onError, onError);
 
 export default function useMediaMixingManager() {
