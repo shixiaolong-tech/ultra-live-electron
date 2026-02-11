@@ -21,47 +21,34 @@
         <div class="tui-login-form-title">
           <span>{{t('Live Streaming Assistant')}}</span>
         </div>
-        <!-- <div class="tui-login-type-container">
-        </div> -->
+        <div class="tui-login-type-container">
+          <span :class="{active:loginType===LoginType.UserAccount}" @click="onChangeLoginType(LoginType.UserAccount)">{{ t('Account Login')}}</span>
+<!--          <span :class="{active:loginType===LoginType.SDKSecretKey}" @click="onChangeLoginType(LoginType.SDKSecretKey)">{{ t('SDK SecretKey Login')}}</span>-->
+<!--          <span :class="{active:loginType===LoginType.UserSig}" @click="onChangeLoginType(LoginType.UserSig)">{{ t('UserSig Login')}}</span>-->
+        </div>
         <div class="tui-login-options">
-          <mobile-phone-form v-if="loginType === LoginType.MobilePhone"
+          <secret-key-form v-if="loginType === LoginType.SDKSecretKey"
             :login-state="loginState"
             :verify-states="verifyStates"
-            @update:phone-number="value => loginState.phoneNumber = value"
-            @update:verify-code="value => loginState.verifyCode = value"
-            @send-verify-code="sendVerifyCode" />
+            @update:sdk-app-id="value => loginState.sdkAppId = value"
+            @update:user-id="value => loginState.userId = value"
+            @update:sdk-secret-key="value => loginState.sdkSecretKey = value"
+            />
           <user-sig-form v-else-if="loginType === LoginType.UserSig"
             :login-state="loginState"
             :verify-states="verifyStates"
             @update:sdk-app-id="value => loginState.sdkAppId = value"
             @update:user-id="value => loginState.userId = value"
             @update:user-sig="value => loginState.userSig = value"
-            />
-          <div class="tui-login-option-license">
-            <tui-checkbox class="tui-license-checkbox" v-model="loginState.isAgreed">
-              {{ t('I have read and agree to the') }}
-            </tui-checkbox>
-            <div class="tui-login-license">
-              <a :underline="false" target="_blank" rel="noopener noreferrer" :href="privacyGuide" class="verify-link">
-                &nbsp;{{ t('Privacy Policy') }}
-              </a>
-            </div>
-          </div>
+          />
+          <password-form v-else-if="loginType === LoginType.UserAccount"
+            :login-state="loginState"
+            @update:user-id="value => loginState.userId = value"
+            @update:password="value => loginState.password = value"
+           />
           <button class="tui-login-button tui-button-ripple" :disabled="isLoggingIn" @click="handleLogin">
             <span class="button">{{ !isLoggingIn ? t('Log In') : t('Logging In')}}</span>
           </button>
-          <!-- <div class="tui-login-switch">
-            <p v-if="loginType === LoginType.MobilePhone">
-              <span class="tui-login-trial-description">
-                {{ t('Trial description') }}
-              </span>
-              <span class="tui-login-trial-link">
-                <a :underline="false" target="_blank" href="https://cloud.tencent.com/document/product/647/17021">{{ t('Mobile App and Web Site') }}</a>
-              </span>
-            </p>
-            <span class="tui-login-trial-switch" v-if="loginType === LoginType.UserSig" @click="toggleLoginMode">&gt;&gt;&gt;&nbsp;{{ t('Enter trial') }}</span>
-            <span class="tui-login-trial-switch" v-if="loginType === LoginType.MobilePhone" @click="toggleLoginMode">&lt;&lt;&lt;&nbsp;{{ t('Exit trial') }}</span>
-          </div> -->
         </div>
       </div>
     </div>
@@ -69,11 +56,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, Ref, computed, reactive, onMounted, onUnmounted } from 'vue';
-import { getVerifyCode, verifyCodeLogin, TUIServerErrorCode } from '../../api/http';
+import { ref, Ref, reactive, onMounted } from 'vue';
 import router from '../../router';
 import { getWindowType } from '../../TUILiveKit/utils/envUtils';
-import i18n from '../../TUILiveKit/locales/index';
 import { useI18n } from '../../TUILiveKit/locales';
 import { getBasicInfo } from '../../debug/basic-info-config.js';
 import SvgIcon from '../../TUILiveKit/common/base/SvgIcon.vue';
@@ -81,25 +66,19 @@ import MaximizeIcon from '../../TUILiveKit/common/icons/MaximizeIcon.vue';
 import MinimizeIcon from '../../TUILiveKit/common/icons/MinimizeIcon.vue';
 import MiniIcon from '../../TUILiveKit/common/icons/MiniIcon.vue';
 import CloseIcon from '../../TUILiveKit/common/icons/CloseIcon.vue';
-import TuiCheckbox from '../../TUILiveKit/common/base/CheckBox.vue';
 import TUIMessageBox from '../../TUILiveKit/common/base/MessageBox';
-import MobilePhoneForm from './MobilePhoneForm.vue';
+import SecretKeyForm from './SecretKeyForm.vue';
 import UserSigForm from './UserSigForm.vue';
-import { runtimeScene } from '../../TUILiveKit/constants/env';
-import { MAX_SDK_APP_ID } from '../../TUILiveKit/constants/tuiConstant';
-import { LoginType, LoginState, VerifyStates } from './types';
-import { MSG_APPID } from './constant';
+import PasswordForm from './PasswordForm.vue';
 import logger from '../../TUILiveKit/utils/logger';
+import { LoginType, LoginState, VerifyStates } from './types';
 
-const privacyGuideEN = 'https://www.tencentcloud.com/document/product/301/17345?lang=en&pg=';
-const privacyGuideCN = 'https://web.sdk.qcloud.com/document/Tencent-RTC-Privacy-Protection-Guidelines.html';
-const privacyGuide = computed(() => (i18n.global.locale.value === 'zh-CN' ? privacyGuideCN : privacyGuideEN ));
-const userAgreement = 'https://web.sdk.qcloud.com/document/Tencent-RTC-User-Agreement.html';
+const serverURL = ''; // ********** Please config your login server URL *********
 
 const loginState:LoginState = reactive({
-  privacyGuide,
-  userAgreement,
-  mode: 'phone_number',
+  privacyGuide: '',
+  userAgreement: '',
+  mode: '',
   isAgreed: false,
   phoneNumber: '',
   mailAddress: '',
@@ -119,80 +98,18 @@ const verifyStates:VerifyStates = reactive({
 
 const { t } = useI18n();
 
-const loginType: Ref<LoginType> = ref(LoginType.UserSig);
+const loginType: Ref<LoginType> = ref(LoginType.SDKSecretKey);
 const isLoggingIn = ref(false);
 
-function toggleLoginMode() {
-  if (loginType.value === LoginType.UserSig) {
-    loginType.value = LoginType.MobilePhone;
-  } else {
-    loginType.value = LoginType.UserSig;
-  }
-}
-
-function startCountDown() {
-  verifyStates.countdown = 60;
-  verifyStates.timer = window.setInterval(() => {
-    verifyStates.countdown = verifyStates.countdown - 1;
-    if (verifyStates.countdown <= 0) {
-      clearInterval(verifyStates.timer);
-    }
-  }, 1000);
-}
-
-function sendVerifyCode() {
-  if (loginType.value === LoginType.MobilePhone && !/^1[3|4|5|7|8|6|9][0-9]\d{8}$/.test(loginState.phoneNumber)) {
-    TUIMessageBox({
-      title: t('Note'),
-      message: t('Please enter a valid phone number!'),
-      confirmButtonText: t('Sure'),
-    });
-    return;
-  }
-  // eslint-disable-next-line no-undef
-  const captcha = new TencentCaptcha(runtimeScene === 'oversea' ? MSG_APPID.oversea : MSG_APPID.home, (res: any) => {
-    if (res.ret === 0) {
-      const { appid, ticket, randstr } = res;
-      doSendVerifyCode(appid, ticket, randstr);
-    }
-  });
-  captcha.show();
-}
-
-async function doSendVerifyCode(appid: string, ticket: string, randstr: string) {
-  const params = {
-    areaCode: loginType.value === LoginType.MobilePhone ? '86' : '',
-    phoneNumber: loginType.value === LoginType.MobilePhone ? loginState.phoneNumber.replace(/\D/g, '') : '',
-    mailAddress: '',
-    appId: appid,
-    ticket,
-    randstr,
-  };
-  try {
-    const smsCaptchaData = await getVerifyCode(params);
-    logger.log('[Login] get SMS code result:', smsCaptchaData);
-    if(smsCaptchaData.data?.errorCode === 0){
-      loginState.sessionId = smsCaptchaData.data.data.sessionId;
-      startCountDown();
-    }else {
-      logger.error('[Login] get verify code failed: ', smsCaptchaData.data);
-      throw new Error(smsCaptchaData.data?.errorMessage);
-    }
-  } catch (error) {
-    logger.error('[Login] get verify code failed: ', error);
-    TUIMessageBox({
-      title: t('Note'),
-      message: t('get SMS code failed!'),
-      confirmButtonText: t('Sure'),
-    });
-  }
+const onChangeLoginType = (type: LoginType) => {
+  loginType.value = type;
 }
 
 async function handleLogin() {
   isLoggingIn.value = true;
   if (validateLoginForm()) {
-    if (loginType.value === LoginType.MobilePhone) {
-      await doMobilePhoneLogin();
+    if (loginType.value === LoginType.UserAccount) {
+      await doPasswordLogin();
     } else if (loginType.value === LoginType.UserSig) {
       doUserSigLogin();
     } else if (loginType.value === LoginType.SDKSecretKey) {
@@ -211,15 +128,14 @@ async function handleLogin() {
 function validateLoginForm(): boolean {
   let result = true;
   if (loginType.value === LoginType.UserSig || loginType.value === LoginType.SDKSecretKey) {
-    const sdkAppId = Number(loginState.sdkAppId.trim());
-    if (sdkAppId <= 0 || sdkAppId > MAX_SDK_APP_ID) {
-      TUIMessageBox({
-        title: t('Note'),
-        message: t('Please enter valid SDKAPPID number.'),
-        confirmButtonText: t('Sure'),
-      });
-      result = false;
-    }
+    // if (loginState.sdkAppId.trim() === '') {
+    //   TUIMessageBox({
+    //     title: t('Note'),
+    //     message: t('Please enter valid SDKAPPID number.'),
+    //     confirmButtonText: t('Sure'),
+    //   });
+    //   result = false;
+    // }
     if (loginState.userId.trim() === '') {
       TUIMessageBox({
         title: t('Note'),
@@ -230,19 +146,19 @@ function validateLoginForm(): boolean {
     }
   }
 
-  if (loginType.value === LoginType.MobilePhone) {
-    if (loginState.phoneNumber.trim() === '') {
+  if (loginType.value === LoginType.UserAccount) {
+    if (loginState.userId.trim() === '') {
       TUIMessageBox({
         title: t('Note'),
-        message: t('Please enter your phone number!'),
+        message: t('Please enter your user ID!'),
         confirmButtonText: t('Sure'),
       });
       result = false;
     }
-    if (loginState.verifyCode.trim() === '') {
+    if (loginState.password.trim() === '') {
       TUIMessageBox({
         title: t('Note'),
-        message: t('Please enter the verification code!'),
+        message: t('Please enter your password!'),
         confirmButtonText: t('Sure'),
       });
       result = false;
@@ -257,75 +173,53 @@ function validateLoginForm(): boolean {
       result = false;
     }
   } else if (loginType.value === LoginType.SDKSecretKey) {
-    if (loginState.sdkSecretKey.trim() === '') {
-      TUIMessageBox({
-        title: t('Note'),
-        message: t('Please enter your SDK secret key!'),
-        confirmButtonText: t('Sure'),
-      });
-      result = false;
-    }
-  }
-  if (!loginState.isAgreed) {
-    TUIMessageBox({
-      title: t('Note'),
-      message: t('Please accept the privacy policy!'),
-      confirmButtonText: t('Sure'),
-    });
-    result = false;
+    // if (loginState.sdkSecretKey.trim() === '') {
+    //   TUIMessageBox({
+    //     title: t('Note'),
+    //     message: t('Please enter your SDK secret key!'),
+    //     confirmButtonText: t('Sure'),
+    //   });
+    //   result = false;
+    // }
   }
   return result;
 }
 
-async function doMobilePhoneLogin() {
-  const params = {
-    areaCode: loginType.value === LoginType.MobilePhone ? '86' : '',
-    phoneNumber: loginType.value === LoginType.MobilePhone ? loginState.phoneNumber.replace(/\D/g, '') : '',
-    mailAddress: '',
-    sessionId: loginState.sessionId,
-    verifyCode: loginState.verifyCode.replace(/\D/g, ''),
-  };
-  logger.log('login params:', params);
-  const loginResult = await verifyCodeLogin(params);
-  logger.log('login result:', loginResult);
-  switch (loginResult.data.errorCode) {
-  case TUIServerErrorCode.SUCCESS:
-    window.localStorage.setItem('billion-live-userInfo', JSON.stringify({
-      ...loginResult.data.data,
-      userName: loginResult.data.data.name,
-      avatarUrl: loginResult.data.data.avatar,
-      loginType: loginType.value
-    }));
-    await gotoNextPage();
-    break;
-  case TUIServerErrorCode.VERIFY_CODE_ERROR:
-    TUIMessageBox({
-      title: t('Note'),
-      message: t('Incorrect verification code, please check the code!'),
-      confirmButtonText: t('Sure'),
-    });
-    break;
-  case TUIServerErrorCode.VERIFY_CODE_EXPIRED:
-    TUIMessageBox({
-      title: t('Note'),
-      message: t('The verification code has expired, please retrieve a new one!'),
-      confirmButtonText: t('Sure'),
-    });
-    break;
-  case TUIServerErrorCode.VERIFY_CODE_USED:
-    TUIMessageBox({
-      title: t('Note'),
-      message: t('The verification code has been used, please retrieve a new one!'),
-      confirmButtonText: t('Sure'),
-    });
-    break;
-  default:
+async function doPasswordLogin() {
+  const param = new URLSearchParams({
+    userId: loginState.userId.trim(),
+    password: loginState.password
+  });
+  const loginURL =  `${serverURL}?${param.toString()}`
+
+  try {
+    const response = await fetch(loginURL);
+    if (response.ok) {
+      const jsonResponse= response.json() as any;
+      window.localStorage.setItem('billion-live-userInfo', JSON.stringify({
+        sdkAppId: jsonResponse.sdkAppId,
+        userId: jsonResponse.userId,
+        userName: jsonResponse.userName,
+        userSig: jsonResponse.userSig,
+        avatarUrl: jsonResponse.avatarUrl,
+        loginType: loginType.value
+      }));
+      await gotoNextPage();
+    } else {
+      logger.warn('Login failed:', response);
+      TUIMessageBox({
+        title: t('Note'),
+        message: t('Login failed.'),
+        confirmButtonText: t('Sure'),
+      });
+    }
+  } catch (error) {
+    logger.warn('Login failed:', error);
     TUIMessageBox({
       title: t('Note'),
       message: t('Login failed.'),
       confirmButtonText: t('Sure'),
     });
-    break;
   }
 }
 
@@ -343,7 +237,7 @@ async function doUserSigLogin() {
 
 async function doSDKSecretKeyLogin() {
   const { sdkAppId, userId, userSig, userName, avatarUrl }
-    = getBasicInfo(loginState.userId.trim(), Number(loginState.sdkAppId.trim()), loginState.sdkSecretKey.trim());
+    = getBasicInfo(loginState.userId.trim(), 0, '');
   window.localStorage.setItem('billion-live-userInfo', JSON.stringify({
     sdkAppId,
     userId,
@@ -385,21 +279,6 @@ onMounted(() => {
     script.type = 'text/javascript';
     script.src = 'https://turing.captcha.qcloud.com/TCaptcha.js';
     document.getElementsByTagName('head')[0].appendChild(script);
-
-    script.onerror = () => {
-      TUIMessageBox({
-        title: t('Note'),
-        message: t('Failed to load captcha script, please check your network connection!'),
-        confirmButtonText: t('Sure'),
-      });
-    };
-  }
-});
-
-onUnmounted(() => {
-  if (verifyStates.timer) {
-    clearInterval(verifyStates.timer);
-    verifyStates.timer = 0;
   }
 });
 
@@ -464,11 +343,11 @@ function onClose() {
   }
 
   .tui-login-form {
-    flex: 0 0 27rem;
-    width: 27rem;
+    flex: 0 0 28rem;
+    width: 28rem;
     border-radius: 1.25rem;
     margin: 0 3rem;
-    padding: 2.5rem;
+    padding: 2.5rem 2rem;
     background-image: linear-gradient(230deg, rgba(61, 119, 255, 0.53), rgba(61, 143, 255, 0) 50%);
   }
 
@@ -555,6 +434,7 @@ function onClose() {
   }
 
   .tui-warning-notice {
+    margin-top: 1rem;
     color: $color-error;
     font-size: 0.75rem;
   }
@@ -562,6 +442,7 @@ function onClose() {
   .tui-login-button {
     width: 100%;
     height: 3rem;
+    margin-top: 1rem;
     border: 1px solid $color-primary;
     border-radius: 0.5rem;
     background-color: $color-primary;
@@ -584,41 +465,6 @@ function onClose() {
       background-color: $color-anchor-active;
       background-size: 100%;
       transition: background 0s;
-    }
-  }
-
-  .tui-login-switch {
-    margin-top: 1rem;
-    font-size: 0.75rem;
-
-    .tui-login-trial-switch {
-      color: $color-primary;
-      cursor: pointer;
-      transition: color 0.2s ease-in-out;
-
-      &:hover {
-        color: $font-color-login-trial-hover;
-      }
-    }
-  }
-
-  .tui-error-message {
-    color: $color-error;
-    font-size: 0.75rem;
-    margin-top: 0.25rem 0;
-    padding-left: 2rem;
-    line-height: 1.4;
-    animation: errorFadeIn 0.3s ease;
-  }
-
-  @keyframes errorFadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(-4px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
     }
   }
 }

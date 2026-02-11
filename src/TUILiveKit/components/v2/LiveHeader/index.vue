@@ -98,8 +98,8 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useUIKit();
-const { loginUserInfo } = useLoginState();
-
+const loginUserInfo = JSON.parse(window.localStorage.getItem('billion-live-userInfo') || '{}');
+console.log('loginUserInfo', loginUserInfo)
 // User control dropdown state
 const showUserControl = ref(false);
 const showProfileDialog = ref(false);

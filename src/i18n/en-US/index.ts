@@ -129,4 +129,47 @@ export const resource = {
   'You are currently live streaming. Do you want to end the live and quit the app?': 'You are currently live streaming. Do you want to end the live and quit the app?',
   'End live and quit': 'End live and quit',
   'Failed to end live, please try again later': 'Failed to end live, please try again later',
+  // ImageUpload component
+  'Uploading...': 'Uploading...',
+  'Support paste image': 'Support paste image',
+  'Click to upload image': 'Click to upload image',
+  'File size limit': 'File size limit',
+  'Upload timeout, please try again': 'Upload timeout, please try again',
+  'Please upload image file': 'Please upload image file',
+  'File size cannot exceed': 'File size cannot exceed',
+  'Upload failed, please try again': 'Upload failed, please try again',
+  // LiveDetail message component
+  'liveDetail.noMessages': 'No messages',
+  'liveDetail.replyingTo': 'Replying to',
+  'liveDetail.broadcaster': 'Broadcaster',
+  'liveDetail.marketPrice': 'Market Price',
+  'liveDetail.buyOpen': 'Buy Open',
+  'liveDetail.sellOpen': 'Sell Open',
+  'liveDetail.sellClose': 'Sell Close',
+  'liveDetail.buyClose': 'Buy Close',
+  'liveDetail.defaultUserName': 'Anonymous',
+  'liveDetail.sent': 'sent',
+  'liveDetail.superAdmin': 'Super Admin',
+  'liveDetail.official': 'Official',
+  'liveDetail.reply': 'Reply',
+  'liveDetail.notice': 'Notice',
+  'liveDetail.welcomeMessage': 'Welcome to the live room',
+  'liveDetail.swap': 'Swap',
+  // Perps component
+  'perps.limit': 'Limit',
+  // Dynamic component
+  'dynamic.comment.self': 'Me',
+  // Commit component
+  'Commit.need_login_first': 'Please',
+  'Commit.login': 'login',
+  'Commit.to_start_chat': 'to start chatting',
+  'Commit.offlineMessage': 'You are offline',
+  'Commit.banMessage': 'You have been banned',
+  'Commit.input_placeholder': 'Type a message...',
+  // RichTextarea component
+  'richTextarea.copyRestricted': 'File paste is not supported',
+  // Emoji component
+  'emoji.sticker': 'Sticker',
+  'emoji.emoji': 'Emoji',
+  'emoji.emojiPickerPlaceholder': 'Emoji picker (to be integrated)',
 };

@@ -1,11 +1,12 @@
 <template>
-    <TUILiveKitMain
+    <!-- <TUILiveKitMain
       ref="liveKitRef"
       @on-logout="handleLogout"
       @on-login-failed="handleLoginFailed"
       @on-kicked-off-line="handleKickedOffLine"
       @on-user-sig-expired="handleUserSigExpired"
-      @on-user-auth-changed="handleUserAuthChanged"/>
+      @on-user-auth-changed="handleUserAuthChanged"/> -->
+      11
 </template>
 
 <script setup lang="ts">
@@ -24,9 +25,9 @@ const { t } = useI18n();
 const isInited = ref(false);
 
 const gotoLogin = () => {
-  window.localStorage.removeItem('TUILiveKit-userInfo');
-  window.ipcRenderer.send('user-logout');
-  router.replace('/login');
+  // window.localStorage.removeItem('billion-live-userInfo');
+  // window.ipcRenderer.send('user-logout');
+  // router.replace('/login');
 };
 
 const handleLogout = () => {
@@ -46,7 +47,7 @@ const handleUserSigExpired = () => {
 };
 
 const handleUserAuthChanged = (userInfo: Record<string, any>) => {
-  window.localStorage.setItem('TUILiveKit-userInfo', JSON.stringify({
+  window.localStorage.setItem('billion-live-userInfo', JSON.stringify({
     ...userInfo,
     loginType: LoginType.UserSig
   }));
@@ -74,7 +75,7 @@ async function init(userInfo: Record<string, any>) {
       message: t('init RoomEngine and State error'),
       confirmButtonText: t('Sure'),
     });
-    gotoLogin();
+    // gotoLogin();
   }
 }
 
@@ -110,9 +111,9 @@ onBeforeMount(() => {
 onMounted(async () => {
   window.ipcRenderer.on('openTUILiveKit', openTUILiveKit);
 
-  const currentUserInfo = window.localStorage.getItem('TUILiveKit-userInfo');
+  const currentUserInfo = window.localStorage.getItem('billion-live-userInfo');
   if (!currentUserInfo) {
-    gotoLogin();
+    // gotoLogin();
   } else {
     let userInfo;
     try {
@@ -120,10 +121,10 @@ onMounted(async () => {
       logger.debug(`${logPrefix}onMounted parse userInfo:`, userInfo);
     } catch (e) {
       logger.error(`${logPrefix}onMounted parse userInfo error:`, e);
-      gotoLogin();
+      // gotoLogin();
       return;
     }
-    init(userInfo);
+    // init(userInfo);
   }
 });
 

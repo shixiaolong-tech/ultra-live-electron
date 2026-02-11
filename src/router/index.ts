@@ -56,7 +56,7 @@ router.beforeEach((to: RouteLocationNormalized) => {
     return { name: 'tui-livekit-mac-v2' };
   }
   if (to.name === 'tui-live-kit-main') {
-    const storedUserInfo = window.localStorage.getItem('TUILiveKit-userInfo');
+    const storedUserInfo = window.localStorage.getItem('billion-live-userInfo');
     if (!storedUserInfo) {
       return { name: 'login' };
     }

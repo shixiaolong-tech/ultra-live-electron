@@ -14,7 +14,8 @@
     "preelectron": "node scripts/postinstall.js",
     "electron": "electron .",
     "build:win64": "electron-builder --win --x64",
-    "pack:win64": "npm run build && npm run build:win64"
+    "pack:win64": "npm run build && npm run build:win64",
+    "pack:mac-x64": "npm run build && electron-builder --mac --x64"
   },
   "dependencies": {
     "@tencentcloud/tuiroom-engine-electron": "3.6.0-beta.1",

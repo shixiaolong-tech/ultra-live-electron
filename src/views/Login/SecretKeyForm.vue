@@ -13,7 +13,7 @@
     <input
       :value="props.loginState.userId"
       class="tui-login-input"
-      :placeholder="t('Enter user ID')"
+      placeholder="请输入用户登录码"
       spellcheck="false"
       @input="emit('update:userId', ($event.target  as HTMLInputElement)?.value)"
     >

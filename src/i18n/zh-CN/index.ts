@@ -163,4 +163,47 @@ export const resource = {
   'You are currently live streaming. Do you want to end the live and quit the app?': '当前正在直播，是否先结束直播并退出应用？',
   'End live and quit': '结束直播并退出',
   'Failed to end live, please try again later': '结束直播失败，请稍后重试',
+  // ImageUpload component
+  'Uploading...': '上传中...',
+  'Support paste image': '支持粘贴图片',
+  'Click to upload image': '点击上传图片',
+  'File size limit': '文件大小限制',
+  'Upload timeout, please try again': '上传超时，请重试',
+  'Please upload image file': '请上传图片文件',
+  'File size cannot exceed': '文件大小不能超过',
+  'Upload failed, please try again': '上传失败，请重试',
+  // LiveDetail message component
+  'liveDetail.noMessages': '暂无消息',
+  'liveDetail.replyingTo': '回复',
+  'liveDetail.broadcaster': '主播',
+  'liveDetail.marketPrice': '市价',
+  'liveDetail.buyOpen': '买入开仓',
+  'liveDetail.sellOpen': '卖出开仓',
+  'liveDetail.sellClose': '卖出平仓',
+  'liveDetail.buyClose': '买入平仓',
+  'liveDetail.defaultUserName': '匿名用户',
+  'liveDetail.sent': '送出了',
+  'liveDetail.superAdmin': '超级管理员',
+  'liveDetail.official': '官方',
+  'liveDetail.reply': '回复',
+  'liveDetail.notice': '提示',
+  'liveDetail.welcomeMessage': '欢迎来到直播间',
+  'liveDetail.swap': 'Swap',
+  // Perps component
+  'perps.limit': '限价',
+  // Dynamic component
+  'dynamic.comment.self': '我',
+  // Commit component
+  'Commit.need_login_first': '请先',
+  'Commit.login': '登录',
+  'Commit.to_start_chat': '开始聊天',
+  'Commit.offlineMessage': '您已离线',
+  'Commit.banMessage': '您已被禁言',
+  'Commit.input_placeholder': '输入消息...',
+  // RichTextarea component
+  'richTextarea.copyRestricted': '不支持粘贴文件',
+  // Emoji component
+  'emoji.sticker': '贴纸',
+  'emoji.emoji': '表情',
+  'emoji.emojiPickerPlaceholder': '表情选择器（待集成）',
 };

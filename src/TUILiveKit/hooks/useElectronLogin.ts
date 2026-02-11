@@ -375,7 +375,7 @@ export function useElectronLogin(options: UseElectronLoginOptions = {}): UseElec
       await logout();
 
       // Clear localStorage
-      window.localStorage.removeItem('TUILiveKit-userInfo');
+      window.localStorage.removeItem('billion-live-userInfo');
 
       // Reset login status
       loginStatus.value = 'idle';

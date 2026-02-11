@@ -5,7 +5,9 @@ console.log('process.env.NODE_ENV:', process.env.NODE_ENV);
 console.log('process.env.VUE_APP_RUNTIME_SCENE:', process.env.VUE_APP_RUNTIME_SCENE);
 
 const isProduction = process.env.NODE_ENV === 'production';
+const isDev = !isProduction;
 const platform = os.platform();
+const env = process.env;
 
 module.exports = defineConfig({
   transpileDependencies: true,
@@ -35,5 +37,5 @@ module.exports = defineConfig({
         },
       ],
     },
-  }
+  },
 })

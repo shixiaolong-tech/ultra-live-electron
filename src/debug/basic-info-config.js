@@ -11,7 +11,7 @@ import LibGenerateTestUserSig from './lib-generate-test-usersig-es.min';
  * It is a unique identifier used by Tencent Cloud to identify users.
  */
 
-export const SDKAppID = 0;
+export const SDKAppID = 20030277;
 
 /**
  * Encryption key for calculating signature, which can be obtained in the following steps:
@@ -27,7 +27,7 @@ export const SDKAppID = 0;
  * unauthorized traffic use caused by the leakage of encryption key.
  * Document: https://intl.cloud.tencent.com/document/product/647/35166#Server
  */
-export const SDKSecretKey = '';
+export const SDKSecretKey = '82113b6566a80533e6e5fd7f80b72df5d4d448d667713cb9478bc97b6ac78bf7';
 
 /**
  * Signature expiration time, which should not be too short

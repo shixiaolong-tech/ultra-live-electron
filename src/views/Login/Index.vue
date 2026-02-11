@@ -23,30 +23,21 @@
         </div>
         <div class="tui-login-type-container">
           <span :class="{active:loginType===LoginType.UserAccount}" @click="onChangeLoginType(LoginType.UserAccount)">{{ t('Account Login')}}</span>
-<!--          <span :class="{active:loginType===LoginType.SDKSecretKey}" @click="onChangeLoginType(LoginType.SDKSecretKey)">{{ t('SDK SecretKey Login')}}</span>-->
-<!--          <span :class="{active:loginType===LoginType.UserSig}" @click="onChangeLoginType(LoginType.UserSig)">{{ t('UserSig Login')}}</span>-->
         </div>
         <div class="tui-login-options">
-          <secret-key-form v-if="loginType === LoginType.SDKSecretKey"
+          <secret-key-form
             :login-state="loginState"
             :verify-states="verifyStates"
-            @update:sdk-app-id="value => loginState.sdkAppId = value"
             @update:user-id="value => loginState.userId = value"
-            @update:sdk-secret-key="value => loginState.sdkSecretKey = value"
             />
-          <user-sig-form v-else-if="loginType === LoginType.UserSig"
-            :login-state="loginState"
-            :verify-states="verifyStates"
-            @update:sdk-app-id="value => loginState.sdkAppId = value"
-            @update:user-id="value => loginState.userId = value"
-            @update:user-sig="value => loginState.userSig = value"
-          />
-          <password-form v-else-if="loginType === LoginType.UserAccount"
-            :login-state="loginState"
-            @update:user-id="value => loginState.userId = value"
-            @update:password="value => loginState.password = value"
-           />
-          <button class="tui-login-button tui-button-ripple" :disabled="isLoggingIn" @click="handleLogin">
+          <button 
+            class="tui-login-button" 
+            :class="{
+              'tui-login-button-disabled': !loginState.userId,
+              'tui-button-ripple': loginState.userId
+            }"
+            :disabled="!loginState.userId" 
+            @click="handleLogin">
             <span class="button">{{ !isLoggingIn ? t('Log In') : t('Logging In')}}</span>
           </button>
         </div>
@@ -68,10 +59,10 @@ import MiniIcon from '../../TUILiveKit/common/icons/MiniIcon.vue';
 import CloseIcon from '../../TUILiveKit/common/icons/CloseIcon.vue';
 import TUIMessageBox from '../../TUILiveKit/common/base/MessageBox';
 import SecretKeyForm from './SecretKeyForm.vue';
-import UserSigForm from './UserSigForm.vue';
-import PasswordForm from './PasswordForm.vue';
 import logger from '../../TUILiveKit/utils/logger';
 import { LoginType, LoginState, VerifyStates } from './types';
+import { SDKAppID } from '../../debug/basic-info-config.js';
+import { api } from '../../lib/api';
 
 const serverURL = ''; // ********** Please config your login server URL *********
 
@@ -107,147 +98,37 @@ const onChangeLoginType = (type: LoginType) => {
 
 async function handleLogin() {
   isLoggingIn.value = true;
-  if (validateLoginForm()) {
-    if (loginType.value === LoginType.UserAccount) {
-      await doPasswordLogin();
-    } else if (loginType.value === LoginType.UserSig) {
-      doUserSigLogin();
-    } else if (loginType.value === LoginType.SDKSecretKey) {
-      doSDKSecretKeyLogin();
-    } else {
-      TUIMessageBox({
-        title: t('Note'),
-        message: t('Unknown login type!'),
-        confirmButtonText: t('Sure'),
-      });
-    }
+  console.log('开始')
+  if (!loginState.userId.trim()) {
+    return;
   }
-  isLoggingIn.value = false;
-}
-
-function validateLoginForm(): boolean {
-  let result = true;
-  if (loginType.value === LoginType.UserSig || loginType.value === LoginType.SDKSecretKey) {
-    // if (loginState.sdkAppId.trim() === '') {
-    //   TUIMessageBox({
-    //     title: t('Note'),
-    //     message: t('Please enter valid SDKAPPID number.'),
-    //     confirmButtonText: t('Sure'),
-    //   });
-    //   result = false;
-    // }
-    if (loginState.userId.trim() === '') {
-      TUIMessageBox({
-        title: t('Note'),
-        message: t('Please enter your user ID!'),
-        confirmButtonText: t('Sure'),
-      });
-      result = false;
-    }
-  }
-
-  if (loginType.value === LoginType.UserAccount) {
-    if (loginState.userId.trim() === '') {
-      TUIMessageBox({
-        title: t('Note'),
-        message: t('Please enter your user ID!'),
-        confirmButtonText: t('Sure'),
-      });
-      result = false;
-    }
-    if (loginState.password.trim() === '') {
-      TUIMessageBox({
-        title: t('Note'),
-        message: t('Please enter your password!'),
-        confirmButtonText: t('Sure'),
-      });
-      result = false;
-    }
-  } else if (loginType.value === LoginType.UserSig) {
-    if (loginState.userSig.trim() === '') {
-      TUIMessageBox({
-        title: t('Note'),
-        message: t('Please enter your user signature!'),
-        confirmButtonText: t('Sure'),
-      });
-      result = false;
-    }
-  } else if (loginType.value === LoginType.SDKSecretKey) {
-    // if (loginState.sdkSecretKey.trim() === '') {
-    //   TUIMessageBox({
-    //     title: t('Note'),
-    //     message: t('Please enter your SDK secret key!'),
-    //     confirmButtonText: t('Sure'),
-    //   });
-    //   result = false;
-    // }
-  }
-  return result;
-}
-
-async function doPasswordLogin() {
-  const param = new URLSearchParams({
-    userId: loginState.userId.trim(),
-    password: loginState.password
-  });
-  const loginURL =  `${serverURL}?${param.toString()}`
-
-  try {
-    const response = await fetch(loginURL);
-    if (response.ok) {
-      const jsonResponse= response.json() as any;
-      window.localStorage.setItem('TUILiveKit-userInfo', JSON.stringify({
-        sdkAppId: jsonResponse.sdkAppId,
-        userId: jsonResponse.userId,
-        userName: jsonResponse.userName,
-        userSig: jsonResponse.userSig,
-        avatarUrl: jsonResponse.avatarUrl,
-        loginType: loginType.value
-      }));
-      await gotoNextPage();
-    } else {
-      logger.warn('Login failed:', response);
-      TUIMessageBox({
-        title: t('Note'),
-        message: t('Login failed.'),
-        confirmButtonText: t('Sure'),
-      });
-    }
-  } catch (error) {
-    logger.warn('Login failed:', error);
+  const response = await api.assistant.loginByCode(loginState.userId.trim());
+  if (response.code === 200 && response.data) {
+    window.localStorage.setItem('billion-live-token', response.data.token);
+    // 获取个人信息
+    await getUserInfo();
+  } else {
     TUIMessageBox({
       title: t('Note'),
-      message: t('Login failed.'),
+      message: response.msg,
       confirmButtonText: t('Sure'),
     });
   }
 }
 
-async function doUserSigLogin() {
-  window.localStorage.setItem('TUILiveKit-userInfo', JSON.stringify({
-    sdkAppId: Number(loginState.sdkAppId),
-    userId: loginState.userId.trim(),
-    userName: '',
-    userSig: loginState.userSig.trim(),
-    avatarUrl: '',
-    loginType: loginType.value
+async function getUserInfo() {
+  const userInfoResponse = await api.user.getUserInfo();
+  window.localStorage.setItem('billion-live-userInfo', JSON.stringify({
+    sdkAppId: SDKAppID,
+    userId: userInfoResponse.data?.userId,
+    userName: userInfoResponse.data?.name,
+    userSig: userInfoResponse.data?.userSig,
+    avatarUrl: userInfoResponse.data?.avatar,
+    loginType: LoginType.SDKSecretKey
   }));
   await gotoNextPage();
 }
 
-async function doSDKSecretKeyLogin() {
-  const { sdkAppId, userId, userSig, userName, avatarUrl }
-    = getBasicInfo(loginState.userId.trim(), 0, '');
-  window.localStorage.setItem('TUILiveKit-userInfo', JSON.stringify({
-    sdkAppId,
-    userId,
-    userName,
-    userSig,
-    avatarUrl,
-    loginType: loginType.value
-  }));
-  await gotoNextPage();
-}
 
 async function gotoNextPage() {
   const winType = await getWindowType();
@@ -279,6 +160,10 @@ onMounted(() => {
     script.type = 'text/javascript';
     script.src = 'https://turing.captcha.qcloud.com/TCaptcha.js';
     document.getElementsByTagName('head')[0].appendChild(script);
+  }
+  const userStore = window.localStorage.getItem('billion-live-token') as any;
+  if (userStore) {
+    getUserInfo();
   }
 });
 
@@ -449,7 +334,6 @@ function onClose() {
     cursor: pointer;
     color: #D5E0F2;
   }
-
   .tui-button-ripple {
     background-position: center;
     transition: background 500ms ease-in-out;
@@ -466,6 +350,11 @@ function onClose() {
       background-size: 100%;
       transition: background 0s;
     }
+  }
+  .tui-login-button-disabled {
+    background-color: #292d38;
+    border: 1px solid #292d38;
+    cursor: not-allowed;
   }
 }
 </style>

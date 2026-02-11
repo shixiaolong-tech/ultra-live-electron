@@ -67,7 +67,7 @@ export default {
   'No user ID': '缺少用户身份标识',
   'Sources': '画面源',
   'Video Encode': '视频编码',
-  'Support diverse types of media sources': '支持添加丰富多样的画面源',
+  'Support diverse types of media sources': '支持添加丰富多样的画面源1',
   'Add Camera':'添加摄像头',
   'Edit Camera': '修改摄像头',
   'Add Capture': '添加屏幕共享',
