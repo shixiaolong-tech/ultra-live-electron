@@ -208,6 +208,7 @@ const handleStartLive = async () => {
       userSig: response.data?.userSig || '',
       sdkAppId: response.data?.sdkAppId,
       avatarUrl: userInfo.value?.avatarUrl,
+      userName: userInfo.value?.userName || '',
     }))
     goToMain()
   }

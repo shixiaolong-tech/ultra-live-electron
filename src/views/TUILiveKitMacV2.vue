@@ -38,7 +38,7 @@
           >
             <!-- <StreamMixer /> -->
             <!-- 显示麦上观众 -->
-            <!-- <div
+            <div
               class="main-center-online-audience"
               v-if="
                 liveSeatList.length > 0 &&
@@ -78,7 +78,7 @@
                   </div>
                 </div>
               </template>
-            </div> -->
+            </div>
           </div>
           <div class="main-center-bottom">
             <div class="main-center-bottom-content">
@@ -193,8 +193,8 @@ import {
   LiveScenePanel,
   StreamMixer,
   LiveAudienceList,
-  Avatar,
   DeviceStatus,
+  Avatar,
 } from 'tuikit-atomicx-vue3-electron';
 import TUIRoomEngine, {
   TUISeatMode,
@@ -202,6 +202,7 @@ import TUIRoomEngine, {
 import { TUISeatLayoutTemplate } from '@/TUILiveKit/types';
 import { useElectronLogin } from '../TUILiveKit/hooks/useElectronLogin';
 import MessageComponent from '@/components/message/index.vue'
+// import LayoutSwitch from '../TUILiveKit/components/v2/LayoutSwitch.vue';
 import CoGuestButton from '../TUILiveKit/components/v2/CoGuestButton.vue';
 import MicVolumeSetting from '../TUILiveKit/components/v2/MicVolumeSetting.vue';
 import OrientationSwitch from '../TUILiveKit/components/v2/OrientationSwitch.vue';
@@ -250,6 +251,15 @@ const liveSeatList = ref<any>([]);
 // 直播间状态轮询定时器
 let liveStatusPollingTimer: number | null = null;
 
+TUIRoomEngine.once('ready', () => {
+  TUIRoomEngine.callExperimentalAPI(JSON.stringify({
+    api: 'enableMultiPlaybackQuality',
+    params: {
+      enable: true,
+    },
+  }));
+});
+
 const showEndLiveDialog = async () => {
   if (loading.value) {
     return;
@@ -293,13 +303,6 @@ const endLiveDialogMessage = computed(() => {
 const handleCreateLive = async () => {
   try {
     if (loading.value) {
-      return;
-    }
-    if (!loginUserInfo.value?.userId) {
-      TUIToast.info({
-        message: t('Please login first'),
-      });
-      reset();
       return;
     }
     if (isNetworkOffline()) {
@@ -346,7 +349,8 @@ const handleCreateLive = async () => {
         },
       })
     );
-    await createLive({
+    // 创建直播间
+    const params = {
       liveId: liveParams.value.liveId,
       liveName: liveParams.value.liveName,
       isMessageDisableForAllUser: false,
@@ -360,7 +364,11 @@ const handleCreateLive = async () => {
       categoryList: [],
       activityStatus: 0,
       maxSeatCount: 0,
-    });
+    }
+    console.log('创建直播间', params);
+    const liveInfo = await createLive(params);
+    console.log('创建直播间结果', liveInfo);
+    // 加入直播间
     await joinLive({
       liveId: liveParams.value.liveId,
     });
@@ -407,7 +415,6 @@ const handleEndLive = async () => {
     }
     loading.value = true;
     exitLiveDialogVisible.value = false;
-    await endLive();
     // 停止TRTC
     if (liveParams.value.liveId) {
       try {
@@ -416,6 +423,8 @@ const handleEndLive = async () => {
         console.error('停止TRTC失败:', error);
       }
     }
+    // 更新直播状态
+    await endLive();
     isPushingLive.value = false;
     loading.value = false;
     TUIToast.success({
@@ -444,6 +453,7 @@ const handleReCreateLive = async () => {
 
 /** Handles app quit request (e.g. Cmd+Q / close main window): confirm end live then quit or cancel. */
 const handleAppRequestQuit = () => {
+  console.log('handleAppRequestQuit', isInLive.value);
   if (!isInLive.value) {
     window.ipcRenderer?.send('app-quit-confirmed');
     return;
@@ -484,13 +494,10 @@ const checkLiveStatus = async (): Promise<boolean> => {
     const res = await api.room.checkUserLiveStatus(
       Number(liveParams.value.liveId)
     );
-    console.log('当前直播间状态', res.data?.status);
+    console.log('当前直播间状态', res.data);
 
     // 如果直播间状态为0（已关闭），执行结束直播操作
     if (res.data?.status === 0) {
-      console.log('检测到直播间已关闭，执行结束直播操作');
-      // 停止轮询
-      stopLiveStatusPolling();
       // 执行结束直播
       await handleEndLive();
       return true; // 返回 true 表示检测到关闭状态
@@ -501,32 +508,6 @@ const checkLiveStatus = async (): Promise<boolean> => {
     console.error('检查直播间状态失败:', error);
     // 发生错误时返回 false，不中断轮询
     return false;
-  }
-};
-
-// 轮询检查直播间状态
-const startLiveStatusPolling = () => {
-  // 如果已经有定时器在运行，先清除
-  if (liveStatusPollingTimer !== null) {
-    clearInterval(liveStatusPollingTimer);
-  }
-
-  // 如果没有 liveId，不启动轮询
-  if (!liveParams.value.liveId) {
-    return;
-  }
-
-  // 每5秒轮询一次
-  liveStatusPollingTimer = window.setInterval(async () => {
-    await checkLiveStatus();
-  }, 5000);
-};
-
-// 停止轮询
-const stopLiveStatusPolling = () => {
-  if (liveStatusPollingTimer !== null) {
-    clearInterval(liveStatusPollingTimer);
-    liveStatusPollingTimer = null;
   }
 };
 
@@ -558,14 +539,6 @@ watch(
 );
 
 // 监听 isPushingLive 状态，启动/停止轮询
-watch(isPushingLive, (newVal) => {
-  if (newVal) {
-    startLiveStatusPolling();
-  } else {
-    stopLiveStatusPolling();
-  }
-});
-
 // 监听 liveParams 变化
 watch(
   liveParams,
@@ -583,73 +556,74 @@ watch(
 onMounted(async () => {
   // Setup event listeners
   setupEventListeners();
-  // if (window.ipcRenderer) {
-  //   window.ipcRenderer.on('app-request-quit', handleAppRequestQuit);
-  // }
-  // // 登录信息获取失败
-  // const storedUserInfo = window.localStorage.getItem(LOCAL_STORAGE_KEY_USER_INFO);
-  // if (!storedUserInfo) {
-  //   const token = window.localStorage.getItem(LOCAL_STORAGE_KEY_TOKEN);
-  //   if (!token) {
-  //     reset();
-  //     return;
-  //   }
-  //   const userInfoResponse = await getUserInfo();
-  //   if (!userInfoResponse) {
-  //     reset();
-  //     return;
-  //   }
-  //   liveUserInfo.value = userInfoResponse;
-  // }
-  // else {
-  //   liveUserInfo.value = JSON.parse(storedUserInfo);
-  // }
-  // // 已登录，但是未创建直播间
-  // const liveResult = window.localStorage.getItem(LOCAL_STORAGE_KEY_LIVE_RESULT);
-  // if (!liveResult) {
-  //   const liveInfo = await api.room.getCurrentLiveStatus();
-  //   const isLiveStatus = liveInfo.data?.isLive;
-  //   console.log('当前直播间状态', isLiveStatus);
-  //   if (!isLiveStatus) {
-  //     window.localStorage.removeItem(LOCAL_STORAGE_KEY_LIVE_RESULT);
-  //     router.replace({ name: 'stream' });
-  //     return;
-  //   }
-  //   else {
-  //     const liveResult = {
-  //       userId: 'live_' + liveUserInfo.value?.userId,
-  //       roomName: liveInfo.data?.roomName,
-  //       roomId: liveInfo.data?.roomId || 0,
-  //       userSig: liveInfo.data?.userSig || '',
-  //       sdkAppId: liveInfo.data?.sdkAppId || '',
-  //     }
-  //     window.localStorage.setItem(LOCAL_STORAGE_KEY_LIVE_RESULT, JSON.stringify(liveResult));
-  //     liveResultInfo.value = liveResult;
-  //   }
-  // }
-  // else {
-  //   liveResultInfo.value = JSON.parse(liveResult);
-  // }
-  // // 获取直播信息，开始登录
-  // try {
-  //   const { sdkAppId, userSig, userId, userName, avatarUrl } = liveResultInfo.value || {};
-  //   // 开始登录
-  //   const loginRes = await loginWithRetry({
-  //     sdkAppId,
-  //     userId,
-  //     userSig,
-  //     userName,
-  //     avatarUrl,
-  //   });
-  //   console.log('登录结果', loginRes);
-  // } catch (e) {
-  //   console.log('登录失败', e);
-  // }
+  if (window.ipcRenderer) {
+    window.ipcRenderer.on('app-request-quit', handleAppRequestQuit);
+  }
+  // 登录信息获取失败
+  const storedUserInfo = window.localStorage.getItem(LOCAL_STORAGE_KEY_USER_INFO);
+  if (!storedUserInfo) {
+    const token = window.localStorage.getItem(LOCAL_STORAGE_KEY_TOKEN);
+    if (!token) {
+      reset();
+      return;
+    }
+    const userInfoResponse = await getUserInfo();
+    if (!userInfoResponse) {
+      reset();
+      return;
+    }
+    liveUserInfo.value = userInfoResponse;
+  }
+  else {
+    liveUserInfo.value = JSON.parse(storedUserInfo);
+  }
+  // 已登录，但是未创建直播间
+  const liveResult = window.localStorage.getItem(LOCAL_STORAGE_KEY_LIVE_RESULT);
+  if (!liveResult) {
+    const liveInfo = await api.room.getCurrentLiveStatus();
+    const isLiveStatus = liveInfo.data?.isLive;
+    console.log('当前直播间状态', isLiveStatus);
+    if (!isLiveStatus) {
+      window.localStorage.removeItem(LOCAL_STORAGE_KEY_LIVE_RESULT);
+      router.replace({ name: 'stream' });
+      return;
+    }
+    else {
+      const liveResult = {
+        userId: 'live_' + liveUserInfo.value?.userId,
+        roomName: liveInfo.data?.roomName,
+        roomId: liveInfo.data?.roomId || 0,
+        userSig: liveInfo.data?.userSig || '',
+        sdkAppId: liveInfo.data?.sdkAppId || '',
+        avatarUrl: liveUserInfo.value?.avatarUrl || '',
+        userName: liveUserInfo.value?.userName || '',
+      }
+      window.localStorage.setItem(LOCAL_STORAGE_KEY_LIVE_RESULT, JSON.stringify(liveResult));
+      liveResultInfo.value = liveResult;
+    }
+  }
+  else {
+    liveResultInfo.value = JSON.parse(liveResult);
+  }
+  // 获取直播信息，开始登录
+  try {
+    const { sdkAppId, userSig, userId, userName, avatarUrl } = liveResultInfo.value || {};
+    // 开始登录
+    await loginWithRetry({
+      sdkAppId,
+      userId,
+      userSig,
+      userName,
+      avatarUrl,
+    });
+    console.log('登录成功');
+  } catch (e) {
+    console.log('登录失败', e);
+  }
 });
 
 onBeforeUnmount(() => {
   // 组件卸载时清除轮询定时器
-  stopLiveStatusPolling();
   cleanupEventListeners();
   if (window.ipcRenderer) {
     window.ipcRenderer.off('app-request-quit', handleAppRequestQuit);
