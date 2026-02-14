@@ -72,7 +72,7 @@ export function useWebSocket({
 
   // 发送消息
   const sendMessage = (content: string) => {
-    console.log('sendMessage', content);
+    console.log('sendMessage', content, wsRef.value, wsRef.value?.readyState, isGuest);
     if (!wsRef.value || wsRef.value.readyState !== WebSocket.OPEN) {
       error.value = 'WebSocket连接未建立';
       return;
@@ -90,6 +90,7 @@ export function useWebSocket({
       voiceLength: null,
       avatar: null,
     };
+    console.log('message', message);
     try {
       wsRef.value.send(JSON.stringify(message));
     } catch (err) {

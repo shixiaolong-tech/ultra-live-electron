@@ -103,6 +103,7 @@ const handleChange = (content: InputContent[]) => {
 };
 
 const handleSend = (content: InputContent[]) => {
+  // 发送消息
   emit('send', content);
 };
 </script>

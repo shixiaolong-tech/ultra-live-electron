@@ -129,7 +129,6 @@
           class="reply-button"
           @click="handleReply(item)"
         >
-          <span class="reply-icon-btn">↩</span>
           <span>{{ t('liveDetail.reply') }}</span>
         </div>
       </template>
@@ -149,7 +148,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, defineProps } from 'vue';
+import { computed, ref, defineProps, defineEmits } from 'vue';
 import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import LiveSwapMessage from './Swap.vue';
 import UserLevel from './UserLevel.vue';
@@ -186,6 +185,10 @@ interface Props {
   messages: WebSocketMessage[];
 }
 
+const emit = defineEmits<{
+  (e: 'reply', message: WebSocketMessage): void;
+}>();
+
 const props = defineProps<Props>();
 const { t, language } = useUIKit();
 const { parseTextToArray, getEmoteByName } = useEmoteParser();
@@ -209,9 +212,7 @@ const handleUserClick = (userId?: string | number) => {
 };
 
 const handleReply = (message: WebSocketMessage) => {
-  if (props.setReplyMessage) {
-    props.setReplyMessage(message);
-  }
+  emit('reply', message);
 };
 </script>
 
@@ -420,20 +421,16 @@ const handleReply = (message: WebSocketMessage) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 1rem;
+  padding: 0 0.5rem;
   flex-direction: column;
   gap: 0.25rem;
   transition: all 0.3s;
   flex-wrap: wrap;
-  color: rgba(255, 255, 255, 0.9);
-  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-color-primary);
+  background-color: var(--bg-color-topbar);
 
   .message-item:hover & {
     opacity: 1;
-  }
-
-  &:hover {
-    color: #1890FF;
   }
 }
 

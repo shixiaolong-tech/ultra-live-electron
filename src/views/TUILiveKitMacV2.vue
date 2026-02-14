@@ -142,30 +142,7 @@
             </div>
             <LiveAudienceList height="calc(100% - 40px)" />
           </div>
-          <div class="main-right-bottom">
-            <div class="main-right-bottom-header">
-              <div class="main-right-bottom-title card-title">
-                {{ t("Barrage list") }}
-              </div>
-            </div>
-            <div class="message-list-container">
-              <MessageList
-                :isLive="true"
-                :messages="messages"
-              />
-            </div>
-            <div class="message-input-container">
-              <!-- <LiveSend /> -->
-              <BarrageInput
-                height="56px"
-                :placeholder="isInLive ? '' : t('Live not started')"
-              />
-              <!-- <LiveSend
-                :disabled="isConnectedLoading"
-                @sendMessage="handleSendMessage"
-              /> -->
-            </div>
-          </div>
+          <MessageComponent :roomId="liveParams.liveId" :userId="liveUserInfo?.userId || ''" />
         </div>
         <LivePusherNotification />
         <TUIDialog
@@ -192,7 +169,6 @@
 <script setup lang='ts'>
 import { onMounted, onBeforeUnmount, computed, ref, watch, defineProps } from 'vue';
 import { useRouter } from 'vue-router';
-import trtcCloud from '../TUILiveKit/utils/trtcCloud';
 import {
   IconEndLive,
   IconLiveLoading,
@@ -217,7 +193,6 @@ import {
   LiveScenePanel,
   StreamMixer,
   LiveAudienceList,
-  BarrageList,
   Avatar,
   DeviceStatus,
 } from 'tuikit-atomicx-vue3-electron';
@@ -226,28 +201,19 @@ import TUIRoomEngine, {
 } from '@tencentcloud/tuiroom-engine-electron';
 import { TUISeatLayoutTemplate } from '@/TUILiveKit/types';
 import { useElectronLogin } from '../TUILiveKit/hooks/useElectronLogin';
-import MessageList from '@/components/message/List.vue'
-import LiveSend from '@/components/chat/LiveSend.vue';
+import MessageComponent from '@/components/message/index.vue'
 import CoGuestButton from '../TUILiveKit/components/v2/CoGuestButton.vue';
-import LayoutSwitch from '../TUILiveKit/components/v2/LayoutSwitch.vue';
 import MicVolumeSetting from '../TUILiveKit/components/v2/MicVolumeSetting.vue';
 import OrientationSwitch from '../TUILiveKit/components/v2/OrientationSwitch.vue';
 import SettingButton from '../TUILiveKit/components/v2/SettingButton.vue';
 import SpeakerVolumeSetting from '../TUILiveKit/components/v2/SpeakerVolumeSetting.vue';
 import LiveHeader from '../TUILiveKit/components/v2/LiveHeader/index.vue';
-import LiveSettingButton from '../TUILiveKit/components/v2/LiveSettingButton.vue';
 import LivePusherNotification from '../TUILiveKit/components/v2/LivePusherNotification.vue';
-import { BarrageInput } from '@/components/BarrageInput';
 import {
-  copyToClipboard,
   isNetworkOffline,
   isNetworkTimeoutError,
 } from '../TUILiveKit/utils/utils';
 import { api } from '../lib/api';
-import { useWebSocket, type WebSocketMessage } from '../composables/useWebSocket';
-
-console.log('TRTC SDK version:', trtcCloud.getSDKVersion());
-
 const router = useRouter();
 const { loginUserInfo } = useLoginState();
 const { t, language } = useUIKit();
@@ -269,7 +235,7 @@ const exitLiveDialogVisible = ref(false);
 const liveResultInfo = ref<Record<string, any> | null>(null);
 const liveUserInfo = ref<Record<string, any> | null>(null);
 const liveParams = computed(() => ({
-  liveId: '10001264' || liveResultInfo.value?.roomId || '',
+  liveId: '20001362' || liveResultInfo.value?.roomId || '',
   liveName: liveResultInfo.value?.roomName || '',
   seatMode: props.seatMode || TUISeatMode.kApplyToTake,
 }));
@@ -280,13 +246,6 @@ const isPushingLive = ref(false);
 const liveSeatList = ref<any>([]);
 // 直播间状态轮询定时器
 let liveStatusPollingTimer: number | null = null;
-
-// 消息相关状态
-const messages = ref<WebSocketMessage[]>([]);
-const totalPage = ref(0);
-const page = ref(1);
-const isConnectedLoading = ref(true);
-const userToken = ref<string | null>(null);
 
 const showEndLiveDialog = async () => {
   if (loading.value) {
@@ -335,20 +294,6 @@ const endLiveDialogMessage = computed(() => {
   }
   return t('You are currently live streaming. Do you want to end it?');
 });
-
-// 发送消息
-const handleSendMessage = (currentMessage: string) => {
-  console.log('发送信息', currentMessage)
-  if (currentMessage.trim()) {
-    // 拼接一下
-    // const content = {
-    //   content: currentMessage,
-    //   replyContent: replyMessage,
-    // };
-    // sendMessage(JSON.stringify(content));
-    // setReplyMessage(null);
-  }
-};
 
 const handleCreateLive = async () => {
   try {
@@ -535,7 +480,6 @@ const handleAppRequestQuit = () => {
     },
   });
 };
-
 onMounted(async () => {
   // Setup event listeners
   setupEventListeners();
@@ -560,18 +504,7 @@ onMounted(async () => {
 
     const { sdkAppId, userSig, userId, userName, avatarUrl, roomId } =
       liveResultInfo.value || {};
-    
-    // 通过 billion-liveResult 里面的 roomId 进行入口判断
-    // 注意：liveParams.value.liveId 是从 liveResultInfo.value?.roomId 计算出来的
-    // 所以这里直接使用 roomId 来判断
-    if (roomId && liveParams.value.liveId) {
-      console.log('roomId', roomId);
-      // 初始化 WebSocket 和聊天列表
-      initWebSocket();
-      // 加载聊天列表
-      await selectRoomChatList();
-    }
-    
+
     // Use retry mechanism for login
     await loginWithRetry({
       sdkAppId,
@@ -686,159 +619,6 @@ watch(
     deep: true,
   }
 );
-
-// 格式化消息内容
-const formatMessageContent = (list: any[]) => {
-  const orderInfoList = list.filter((item: any) => item.messageType === '8').reverse();
-  let messagesList = list
-    .filter((item: any) => item.messageType !== '8')
-    .reverse()
-    .map((item: any) => {
-      let formatContent: {
-        content: string;
-        replyContent: WebSocketMessage | null;
-        isSuperAdmin: boolean;
-      } = {
-        content: '--',
-        replyContent: null,
-        isSuperAdmin: false,
-      };
-      try {
-        formatContent = typeof item.content === 'string' ? JSON.parse(item.content) : item.content;
-      } catch (err) {
-        formatContent = {
-          content: item.content || '--',
-          replyContent: null,
-          isSuperAdmin: false,
-        };
-      }
-      return {
-        ...item,
-        content: formatContent?.content,
-        replyContent: formatContent?.replyContent || null,
-        isSuperAdmin: formatContent?.isSuperAdmin || false,
-      } as unknown as WebSocketMessage;
-    });
-  return {
-    orderInfoList,
-    messagesList,
-  };
-};
-
-// 获取直播间聊天列表
-const selectRoomChatList = async () => {
-  if (!liveParams.value.liveId) {
-    return;
-  }
-  try {
-    const res = await api.room.selectRoomChatList({
-      page: 1,
-      limit: 1000,
-      roomId: Number(liveParams.value.liveId),
-    });
-    
-    // 是否在直播
-    const isLive = isPushingLive.value;
-    totalPage.value = res.data?.totalPage || 0;
-    // 消息格式处理
-    const { messagesList } = formatMessageContent(res.data?.list || []);
-    // 第一次加载的时候，将最后一条插入isNewMessage
-    messages.value = [...(messagesList || []), ...messages.value];
-    if (isLive && messagesList && messagesList.length > 0) {
-      // 检查是否已经存在 isNewMessage 为 true 的消息
-      const hasNewMessageMarker = messages.value.some(msg => msg.isNewMessage === true);
-      if (!hasNewMessageMarker) {
-        messages.value = [
-          ...messages.value,
-          {
-            isNewMessage: true,
-          } as unknown as WebSocketMessage,
-        ];
-      }
-    }
-  } catch (error) {
-    console.error('获取直播间聊天列表失败:', error);
-  }
-};
-
-// WebSocket 相关
-let wsSendMessage: ((content: string) => void) | null = null;
-const wsIsConnected = ref(false);
-
-// 初始化 WebSocket
-const initWebSocket = () => {
-  if (!liveParams.value.liveId || !liveUserInfo.value) {
-    return;
-  }
-  
-  // 获取 token
-  const token = window.localStorage.getItem('billion-live-token') || userToken.value || '';
-  const userId = liveUserInfo.value.userId || '';
-
-  const ws = useWebSocket({
-    autoReconnect: false,
-    isLive: true,
-    roomId: String(liveParams.value.liveId),
-    userId: userId ? String(userId) : 'guest',
-    token: token,
-    onMessage: (message) => {
-      console.log('message', message);
-      // 直播间关闭
-      if (message.type === '7') {
-        isPushingLive.value = false;
-        return;
-      }
-      // 禁言
-      if (message.type === '10') {
-        // 可以在这里处理禁言逻辑
-        return;
-      }
-      // 直播暂停
-      if (message.type === '11') {
-        // 可以在这里处理直播暂停逻辑
-        return;
-      }
-      // 直播重新推流
-      if (message.type === '12') {
-        // 可以在这里处理直播重新推流逻辑
-        return;
-      }
-      // 跟单不加载消息
-      if (message.type === '8') {
-        // 可以在这里处理跟单消息
-        return;
-      }
-      // 跟单
-      if (message.type === '9') {
-        // 可以在这里处理跟单消息
-        return;
-      }
-      // 礼物消息
-      if (message.type === '5') {
-        // 可以在这里处理礼物消息
-        return;
-      }
-      // 普通消息
-      messages.value = [...messages.value, message];
-    },
-    onError: (error) => {
-      console.error('WebSocket错误:', error);
-    },
-    onConnectionReady: () => {
-      console.log('WebSocket连接完毕');
-      isConnectedLoading.value = false;
-    },
-    onConnectionClosed: () => {
-      console.log('WebSocket被互踢了');
-    },
-    onConnectionChange: (connected) => {
-      wsIsConnected.value = connected;
-    },
-  });
-  
-  wsSendMessage = ws.sendMessage;
-  wsIsConnected.value = ws.isConnected.value;
-};
 
 onBeforeUnmount(() => {
   // 组件卸载时清除轮询定时器
@@ -1196,6 +976,49 @@ onBeforeUnmount(() => {
         .message-list-container {
           flex: 1 1 auto;
           user-select: text;
+          overflow-y: auto;
+          margin: 0 -0.5rem;
+        }
+        .message-input-container {
+          border-top: 1px solid var(--stroke-color-primary);
+          padding-top: 12px;
+        }
+        .reply-preview {
+          display: flex;
+          align-items: start;
+          flex-direction: column;
+          font-size: 12px;
+          margin-bottom: 6px;
+          gap: 4px;
+          .reply-preview-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+          }
+          .reply-preview-header-close {
+            cursor: pointer;
+            width: 14px;
+            height: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            &:hover {
+              color: $icon-hover-color;
+            }
+          }
+          .reply-preview-content {
+            width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 2px 4px;
+            border-radius: 4px;
+          }
         }
       }
     }
