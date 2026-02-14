@@ -36,9 +36,9 @@
               currentLive?.layoutTemplate === TUISeatLayoutTemplate.LandscapeDynamic_1v3 ? 'landscape' : 'portrait'
             ]"
           >
-            <StreamMixer />
+            <!-- <StreamMixer /> -->
             <!-- 显示麦上观众 -->
-            <div
+            <!-- <div
               class="main-center-online-audience"
               v-if="
                 liveSeatList.length > 0 &&
@@ -78,7 +78,7 @@
                   </div>
                 </div>
               </template>
-            </div>
+            </div> -->
           </div>
           <div class="main-center-bottom">
             <div class="main-center-bottom-content">
@@ -214,6 +214,9 @@ import {
   isNetworkTimeoutError,
 } from '../TUILiveKit/utils/utils';
 import { api } from '../lib/api';
+import { LOCAL_STORAGE_KEY_USER_INFO, LOCAL_STORAGE_KEY_LIVE_RESULT, LOCAL_STORAGE_KEY_TOKEN, clearAllLocalStorage } from '@/const/local';
+import { getUserInfo } from '@/utils/base';
+
 const router = useRouter();
 const { loginUserInfo } = useLoginState();
 const { t, language } = useUIKit();
@@ -235,7 +238,7 @@ const exitLiveDialogVisible = ref(false);
 const liveResultInfo = ref<Record<string, any> | null>(null);
 const liveUserInfo = ref<Record<string, any> | null>(null);
 const liveParams = computed(() => ({
-  liveId: '20001362' || liveResultInfo.value?.roomId || '',
+  liveId: liveResultInfo.value?.roomId || '',
   liveName: liveResultInfo.value?.roomName || '',
   seatMode: props.seatMode || TUISeatMode.kApplyToTake,
 }));
@@ -262,12 +265,10 @@ const {
   handleLogout: handleElectronLogout,
 } = useElectronLogin({
   onLogout: () => {
-    console.log('onLogout');
-    // router.replace({ name: 'login' });
+    reset();
   },
   onLoginFailed: () => {
-    console.log('onLoginFailed');
-    // router.replace({ name: 'login' });
+    reset();
   },
 });
 
@@ -276,15 +277,9 @@ const handleLogout = async () => {
   try {
     await handleElectronLogout();
   } catch (error) {
-    redirectToLogin();
+    reset();
   }
 };
-
-function redirectToLogin() {
-  window.localStorage.removeItem('billion-live-userInfo');
-  window.localStorage.removeItem('billion-liveResult');
-  // router.replace({ name: 'login' });
-}
 
 const endLiveDialogMessage = computed(() => {
   if (coGuestConnected.value.length > 1) {
@@ -304,7 +299,7 @@ const handleCreateLive = async () => {
       TUIToast.info({
         message: t('Please login first'),
       });
-      redirectToLogin();
+      reset();
       return;
     }
     if (isNetworkOffline()) {
@@ -326,7 +321,7 @@ const handleCreateLive = async () => {
           message: t('Live Room Closed Redirect Message'),
         });
         setTimeout(() => {
-          router.replace({ name: 'loading' });
+          router.replace({ name: 'stream' });
         }, 3000);
         return;
       }
@@ -421,9 +416,6 @@ const handleEndLive = async () => {
         console.error('停止TRTC失败:', error);
       }
     }
-    window.localStorage.removeItem('billion-liveResult');
-    // window.localStorage.removeItem('billion-live-userInfo');
-    // window.localStorage.removeItem('billion-live-token');
     isPushingLive.value = false;
     loading.value = false;
     TUIToast.success({
@@ -441,13 +433,13 @@ const handleEndLive = async () => {
     }
     exitLiveDialogVisible.value = false;
   } finally {
-    // router.replace({ name: 'login' });
+    window.localStorage.removeItem(LOCAL_STORAGE_KEY_LIVE_RESULT);
   }
 };
 
 const handleReCreateLive = async () => {
   await handleEndLive();
-  router.replace({ name: 'loading' });
+  router.replace({ name: 'stream' });
 };
 
 /** Handles app quit request (e.g. Cmd+Q / close main window): confirm end live then quit or cancel. */
@@ -480,43 +472,6 @@ const handleAppRequestQuit = () => {
     },
   });
 };
-onMounted(async () => {
-  // Setup event listeners
-  setupEventListeners();
-  if (window.ipcRenderer) {
-    window.ipcRenderer.on('app-request-quit', handleAppRequestQuit);
-  }
-
-  // Read user info from localStorage
-  const currentUserInfo = window.localStorage.getItem('billion-live-userInfo');
-  const liveResult = window.localStorage.getItem('billion-liveResult');
-  if (!currentUserInfo) {
-    // router.replace({ name: 'login' });
-    return;
-  }
-  if (!liveResult) {
-    // router.replace({ name: 'loading' });
-    return;
-  }
-  try {
-    liveResultInfo.value = JSON.parse(liveResult);
-    liveUserInfo.value = JSON.parse(currentUserInfo);
-
-    const { sdkAppId, userSig, userId, userName, avatarUrl, roomId } =
-      liveResultInfo.value || {};
-
-    // Use retry mechanism for login
-    await loginWithRetry({
-      sdkAppId,
-      userId,
-      userSig,
-      userName,
-      avatarUrl,
-    });
-  } catch (e) {
-    // redirectToLogin();
-  }
-});
 
 // 检查直播间状态
 const checkLiveStatus = async (): Promise<boolean> => {
@@ -575,6 +530,11 @@ const stopLiveStatusPolling = () => {
   }
 };
 
+// 重置
+const reset = () => {
+  clearAllLocalStorage();
+  router.replace({ name: 'login' });
+}
 // 监听麦上用户数据
 watch(
   seatList,
@@ -619,6 +579,73 @@ watch(
     deep: true,
   }
 );
+
+onMounted(async () => {
+  // Setup event listeners
+  setupEventListeners();
+  // if (window.ipcRenderer) {
+  //   window.ipcRenderer.on('app-request-quit', handleAppRequestQuit);
+  // }
+  // // 登录信息获取失败
+  // const storedUserInfo = window.localStorage.getItem(LOCAL_STORAGE_KEY_USER_INFO);
+  // if (!storedUserInfo) {
+  //   const token = window.localStorage.getItem(LOCAL_STORAGE_KEY_TOKEN);
+  //   if (!token) {
+  //     reset();
+  //     return;
+  //   }
+  //   const userInfoResponse = await getUserInfo();
+  //   if (!userInfoResponse) {
+  //     reset();
+  //     return;
+  //   }
+  //   liveUserInfo.value = userInfoResponse;
+  // }
+  // else {
+  //   liveUserInfo.value = JSON.parse(storedUserInfo);
+  // }
+  // // 已登录，但是未创建直播间
+  // const liveResult = window.localStorage.getItem(LOCAL_STORAGE_KEY_LIVE_RESULT);
+  // if (!liveResult) {
+  //   const liveInfo = await api.room.getCurrentLiveStatus();
+  //   const isLiveStatus = liveInfo.data?.isLive;
+  //   console.log('当前直播间状态', isLiveStatus);
+  //   if (!isLiveStatus) {
+  //     window.localStorage.removeItem(LOCAL_STORAGE_KEY_LIVE_RESULT);
+  //     router.replace({ name: 'stream' });
+  //     return;
+  //   }
+  //   else {
+  //     const liveResult = {
+  //       userId: 'live_' + liveUserInfo.value?.userId,
+  //       roomName: liveInfo.data?.roomName,
+  //       roomId: liveInfo.data?.roomId || 0,
+  //       userSig: liveInfo.data?.userSig || '',
+  //       sdkAppId: liveInfo.data?.sdkAppId || '',
+  //     }
+  //     window.localStorage.setItem(LOCAL_STORAGE_KEY_LIVE_RESULT, JSON.stringify(liveResult));
+  //     liveResultInfo.value = liveResult;
+  //   }
+  // }
+  // else {
+  //   liveResultInfo.value = JSON.parse(liveResult);
+  // }
+  // // 获取直播信息，开始登录
+  // try {
+  //   const { sdkAppId, userSig, userId, userName, avatarUrl } = liveResultInfo.value || {};
+  //   // 开始登录
+  //   const loginRes = await loginWithRetry({
+  //     sdkAppId,
+  //     userId,
+  //     userSig,
+  //     userName,
+  //     avatarUrl,
+  //   });
+  //   console.log('登录结果', loginRes);
+  // } catch (e) {
+  //   console.log('登录失败', e);
+  // }
+});
 
 onBeforeUnmount(() => {
   // 组件卸载时清除轮询定时器

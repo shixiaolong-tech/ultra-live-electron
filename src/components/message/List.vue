@@ -15,7 +15,9 @@
       >
       <!-- 回复内容 -->
       <div v-if="item.replyContent" class="reply-content">
-        <span class="reply-icon">↩</span>
+        <span class="reply-icon">
+          <TUIIcon color="#fff" size="12px" :icon="IconApplyActive" />
+        </span>
         {{ t('liveDetail.replyingTo') }}
         <span class="reply-user-name" :title="item.replyContent.userName">
           {{ item.replyContent.userName }}
@@ -154,6 +156,7 @@ import LiveSwapMessage from './Swap.vue';
 import UserLevel from './UserLevel.vue';
 import CryptoIcon from './CryptoIcon.vue';
 import { useEmoteParser } from '@/composables/useEmoteParser';
+import { TUIIcon, IconApplyActive } from '@tencentcloud/uikit-base-component-vue3';
 import { getLangName } from './utils';
 
 interface WebSocketMessage {

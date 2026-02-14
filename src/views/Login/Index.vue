@@ -135,7 +135,7 @@ async function gotoNextPage() {
   logger.log(`Login success, go to ${winType} window page`);
   switch (winType) {
   case 'main':
-    router.push({ name: 'loading' });
+    router.push({ name: 'stream' });
     break;
   case 'child':
     router.push({ name: 'tui-live-kit-child' });
@@ -328,33 +328,34 @@ function onClose() {
     width: 100%;
     height: 3rem;
     margin-top: 1rem;
-    border: 1px solid $color-primary;
+    border: 1px solid #33ff00;
     border-radius: 0.5rem;
-    background-color: $color-primary;
+    background-color: #33ff00;
     cursor: pointer;
-    color: #D5E0F2;
+    color: #000;
+    font-size: 1rem;
+    font-weight: 600;
+    &.tui-button-disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   }
-  .tui-button-ripple {
+
+  .tui-button-ripple:not(.tui-button-disabled) {
     background-position: center;
-    transition: background 500ms ease-in-out;
+    transition: all 0.2s ease-in-out;
 
     &:hover {
       background-position: center;
-      background-color: $color-anchor-hover;
-      background-image: radial-gradient(circle, transparent 1%, $color-anchor-hover 1%);
-      background-size: 15000%;
+      background-color: #34e907;
+      transform: translateY(-1px);
     }
 
     &:active {
-      background-color: $color-anchor-active;
+      background-color: #34e907;
       background-size: 100%;
-      transition: background 0s;
+      transition: all 0s;
     }
-  }
-  .tui-login-button-disabled {
-    background-color: #292d38;
-    border: 1px solid #292d38;
-    cursor: not-allowed;
   }
 }
 </style>

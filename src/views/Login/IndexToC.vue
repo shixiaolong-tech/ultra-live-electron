@@ -360,7 +360,7 @@ async function gotoNextPage() {
   logger.log(`Login success, go to ${winType} window page`);
   switch (winType) {
   case 'main':
-    router.push({ name: 'loading' });
+    router.push({ name: 'stream' });
     break;
   case 'child':
     router.push({ name: 'tui-live-kit-child' });

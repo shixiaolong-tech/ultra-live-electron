@@ -4,6 +4,9 @@
       <LiveHeader @logout="handleLogout" />
       <div class="live-pusher-main">
         <div class="live-room-info">
+          <div class="form-title">
+            <h1>创建直播</h1>
+          </div>
           <div class="form-container">
             <!-- 直播标题 -->
             <div class="form-item">
@@ -46,46 +49,49 @@
             </div>
             <!-- 直播封面 -->
             <div class="form-item">
-              <label class="form-label">直播封面</label>
+              <label class="form-label">
+                直播封面
+                <span class="required">*</span>
+              </label>
               <div class="cover-upload-container">
                 <ImageUpload :value="coverImage" :disabled="isLive" :max-size="1" :aspect-ratio="16 / 9"
                   placeholder="点击上传封面" class="cover-upload" @change="handleCoverChange" />
               </div>
             </div>
-            <button class="tui-login-button tui-button-ripple" @click="handleStartLive">
-              <span class="button">开始直播</span>
-            </button>
           </div>
+        </div>
+        <div class="form-button">
+          <div class="form-title">
+            <h1>直播控制</h1>
+          </div>
+          <button 
+            class="tui-login-button tui-button-ripple"
+            :disabled="disabledButton"
+            :class="{ 'tui-button-disabled': disabledButton }"
+            @click="handleStartLive"
+          >
+            <span class="button">开始直播</span>
+          </button>
         </div>
       </div>
     </div>
   </UIKitProvider>
 </template>
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import {
-  IconArrowStrokeBack,
-  IconArrowStrokeSelectDown,
-  IconCopy,
-  IconEndLive,
-  IconLiveLoading,
-  IconLiveStart,
-  TUIButton,
-  TUIDialog,
-  TUIMessageBox,
   TUIToast,
   UIKitProvider,
-  useUIKit
 } from '@tencentcloud/uikit-base-component-vue3';
-import { vTuiLoading } from '@tencentcloud/uikit-base-component-vue3';
 import router from '../router';
 import { isMainWindow } from '../TUILiveKit/utils/envUtils';
-import LiveHeader from '../TUILiveKit/components/v2/LiveHeader/index.vue';
-import { LoginType } from './Login/types';
 import logger from '../TUILiveKit/utils/logger';
 import { useElectronLogin } from '../TUILiveKit/hooks/useElectronLogin';
 import ImageUpload from '../components/ImageUpload.vue';
+import LiveHeader from '../TUILiveKit/components/v2/LiveHeader/index.vue';
+import { getUserInfo } from '@/utils/base';
 import { api } from '../lib/api';
+import { LOCAL_STORAGE_KEY_USER_INFO, LOCAL_STORAGE_KEY_TOKEN, LOCAL_STORAGE_KEY_LIVE_RESULT,  clearAllLocalStorage } from '@/const/local';
 
 const userInfo = ref<Record<string, any> | null>(null);
 
@@ -101,6 +107,8 @@ const coverImage = ref<string | null>(null);
 const isLive = ref(false); // 是否正在直播
 const isInit = ref(true); // 是否初始化完成
 const liveCategory = ref<Array<{ id: number; name: string; nameEn: string; imageUrl: string }>>([]); // 直播分类
+const logPrefix = '[Loading.vue]';
+
 
 const handleCoverChange = (url: string | null) => {
   if (url) {
@@ -119,12 +127,11 @@ const fetchData = async () => {
       api.category.getHotLiveCategory({ page: 1, limit: 100 }),
     ]);
 
-    const status = liveInfo.data?.status;
     const isLiveStatus = liveInfo.data?.isLive;
 
     // 0: 未开播 1: 推流中 -1：待推流
     if (!isLiveStatus) {
-      window.localStorage.removeItem('billion-liveResult');
+      window.localStorage.removeItem(LOCAL_STORAGE_KEY_LIVE_RESULT);
       isLive.value = false;
     } else {
       isLive.value = true;
@@ -137,14 +144,14 @@ const fetchData = async () => {
       coverImage.value = liveInfo.data?.roomImg || null;
 
       // 缓存到本地
-      window.localStorage.setItem('billion-liveResult', JSON.stringify({
+      window.localStorage.setItem(LOCAL_STORAGE_KEY_LIVE_RESULT, JSON.stringify({
         userId: 'live_' + userInfo.value?.userId,
         roomName: liveInfo.data?.roomName,
         roomId: liveInfo.data?.roomId || 0,
         userSig: liveInfo.data?.userSig || '',
         sdkAppId: liveInfo.data?.sdkAppId || '',
       }));
-      goToMain(userInfo.value || {});
+      goToMain();
     }
 
     // 设置分类数据
@@ -164,11 +171,10 @@ const {
   handleLogout: handleElectronLogout,
 } = useElectronLogin({
   onLogout: () => {
-    router.replace({ name: 'login' });
+    reset();
   },
   onLoginFailed: () => {
-    console.log('onLoginFailed')
-    // router.replace({ name: 'login' });
+    reset();
   },
 });
 
@@ -176,14 +182,16 @@ const handleLogout = () => {
   handleElectronLogout();
 };
 
-const logPrefix = '[Loading.vue]';
-
-const gotoLogin = () => {
-  window.localStorage.removeItem('billion-live-userInfo');
+// 跳转到登录页面
+const goToLogin = () => {
   router.push('/login');
 }
 
 const handleStartLive = async () => {
+  if (disabledButton.value) {
+    return;
+  }
+  // 创建直播房间
   const data = {
     streamingMode: 'RTC',
     roomName: formData.value.title,
@@ -191,10 +199,9 @@ const handleStartLive = async () => {
     playingMethod: formData.value.tags,
     roomImg: coverImage.value || ''
   }
-  console.log('data', data)
   const response = await api.room.createLiveRoom(data)
   if (response.code === 200 && response.data) {
-    localStorage.setItem('billion-liveResult', JSON.stringify({
+    localStorage.setItem(LOCAL_STORAGE_KEY_LIVE_RESULT, JSON.stringify({
       userId: 'live_' + userInfo.value?.userId,
       roomName: data.roomName,
       roomId: response.data?.roomId || 0,
@@ -202,7 +209,7 @@ const handleStartLive = async () => {
       sdkAppId: response.data?.sdkAppId,
       avatarUrl: userInfo.value?.avatarUrl,
     }))
-    goToMain(userInfo.value || {})
+    goToMain()
   }
   else {
     TUIToast.error({
@@ -210,75 +217,114 @@ const handleStartLive = async () => {
     });
   }
 }
-async function goToMain(userInfo: Record<string, any>) {
+async function goToMain() {
   logger.log(`${logPrefix}init:`, userInfo);
   const isMain = await isMainWindow();
   if (isMain) {
-    // window.ipcRenderer.send('openTUILiveKit', {
-    //   userInfo
-    // });
+    window.ipcRenderer.send('openTUILiveKit', {
+      userInfo: JSON.stringify(userInfo.value),
+    });
     router.push('/tui-live-kit-main');
   }
 }
 
-onMounted(async () => {
-  const storedUserInfo = window.localStorage.getItem('billion-live-userInfo');
-  if (!storedUserInfo) {
-    gotoLogin();
-    return;
-  }
+// 重置
+const reset = () => {
+  clearAllLocalStorage();
+  goToLogin();
+}
+// 表单是否填写完整（必填：标题、主题分类、内容标签、直播封面）
+const isFormValid = computed(() => {
+  const { title, category, tags } = formData.value;
+  return Boolean(title?.trim() && category && tags?.trim() && coverImage.value);
+});
 
+const disabledButton = computed(() => {
+  return isInit.value || !isFormValid.value;
+});
+
+onMounted(async () => {
+  // 获取用户信息
+  let storedUserInfo = window.localStorage.getItem(LOCAL_STORAGE_KEY_USER_INFO);
+  // 如果用户信息不存在，则跳转到登录页面，则重新获取一下用户信息
+  if (!storedUserInfo) {
+    const token = window.localStorage.getItem(LOCAL_STORAGE_KEY_TOKEN);
+    if (!token) {
+      reset();
+      return;
+    }
+    const userInfoResponse = await getUserInfo();
+    if (!userInfoResponse) {
+      reset();
+      return;
+    }
+    storedUserInfo = JSON.stringify(userInfoResponse);
+  }
   userInfo.value = JSON.parse(storedUserInfo);
-  
   // 调用 fetchData 获取直播状态和分类
   await fetchData();
-  
-  // 如果已经有直播结果，直接跳转
-  const liveResult = window.localStorage.getItem('billion-liveResult');
-  if (liveResult && userInfo.value) {
-    const liveResultData = JSON.parse(liveResult);
-    if (liveResultData.roomId) {
-      goToMain(userInfo.value);
-    }
-  }
 });
 </script>
 
 <style lang="scss" scoped>
 @import '../TUILiveKit/assets/variable.scss';
 
-.tui-loading {
+.tui-livekit-mac-v2 {
   display: flex;
-  justify-content: center;
-  align-items: center;
+  flex-direction: column;
   height: 100vh;
   width: 100vw;
+  background-color: var(--bg-color-topbar);
 }
 
 .live-pusher-main {
   flex: 1;
   padding: 2rem;
-  overflow-y: auto;
-  background-color: #0f1014;
-  color: #e7ecf6;
+  color: var(--text-color-primary);
+  display: flex;
+  height: calc(100% - 2.75rem);
+  width: calc(100% - 2rem);
+  max-width: 1200px;
+  margin: 0 auto;
+  gap: 1.5rem;
 }
 
+.live-room-info,
+.form-button {
+  padding: 1rem 1.5rem;
+  background-color: var(--bg-color-operate);
+  border-radius: 0.5rem;
+  h1 {
+    padding: 0;
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-color-primary);
+    margin-bottom: 1rem;
+  }
+}
 .live-room-info {
-  max-width: 800px;
+  flex: 1;
   margin: 0 auto;
+  overflow-y: auto;
+}
+.form-button {
+  width: 300px;
+  flex: none;
+  height: auto;;
 }
 
 .info-title {
   font-size: 1.5rem;
   font-weight: 600;
   margin-bottom: 1rem;
-  color: #e7ecf6;
+  color: var(--text-color-primary);
 }
 
 .info-tips {
   margin-bottom: 2rem;
   font-size: 0.875rem;
-  color: #adb6cc;
+  color: var(--text-color-secondary);
 
   .tip-item {
     display: flex;
@@ -306,12 +352,12 @@ onMounted(async () => {
 
 .form-label {
   font-size: 0.875rem;
-  color: #e7ecf6;
+  color: var(--text-color-primary);
   display: flex;
   align-items: center;
 
   .required {
-    color: #f23c5b;
+    color: var(--text-color-error);
     margin-left: 0.25rem;
   }
 }
@@ -320,22 +366,22 @@ onMounted(async () => {
 .form-select {
   width: 100%;
   padding: 0.75rem 1rem;
-  background-color: #1a1c24;
-  border: 1px solid #383f4d;
+  background-color: var(--bg-color-operate);
+  border: 1px solid var(--stroke-color-primary);
   border-radius: 0.5rem;
-  color: #e7ecf6;
+  color: var(--text-color-primary);
   font-size: 0.875rem;
   font-family: inherit;
   transition: all 0.2s ease;
 
   &:focus {
     outline: none;
-    border-color: #1c66e5;
+    border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(28, 102, 229, 0.1);
   }
 
   &::placeholder {
-    color: #6b7280;
+    color: var(--text-color-placeholder);
   }
 }
 
@@ -347,35 +393,6 @@ onMounted(async () => {
   background-position: right 1rem center;
   padding-right: 2.5rem;
 }
-
-.stream-type-group {
-  display: flex;
-  gap: 1rem;
-}
-
-.stream-type-btn {
-  flex: 1;
-  padding: 0.75rem 1rem;
-  background-color: #1a1c24;
-  border: 1px solid #383f4d;
-  border-radius: 0.5rem;
-  color: #adb6cc;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    border-color: #4b5563;
-    background-color: #252730;
-  }
-
-  &.active {
-    background-color: #10b981;
-    border-color: #10b981;
-    color: #ffffff;
-  }
-}
-
 .cover-upload-container {
   display: flex;
   flex-direction: column;
@@ -387,28 +404,33 @@ onMounted(async () => {
   width: 100%;
   height: 3rem;
   margin-top: 1rem;
-  border: 1px solid $color-primary;
+  border: 1px solid #33ff00;
   border-radius: 0.5rem;
-  background-color: $color-primary;
+  background-color: #33ff00;
   cursor: pointer;
-  color: #D5E0F2;
+  color: #000;
+  font-size: 1rem;
+  font-weight: 600;
+  &.tui-button-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 }
 
-.tui-button-ripple {
+.tui-button-ripple:not(.tui-button-disabled) {
   background-position: center;
-  transition: background 500ms ease-in-out;
+  transition: all 0.2s ease-in-out;
 
   &:hover {
     background-position: center;
-    background-color: $color-anchor-hover;
-    background-image: radial-gradient(circle, transparent 1%, $color-anchor-hover 1%);
-    background-size: 15000%;
+    background-color: #34e907;
+    transform: translateY(-1px);
   }
 
   &:active {
-    background-color: $color-anchor-active;
+    background-color: #34e907;
     background-size: 100%;
-    transition: background 0s;
+    transition: all 0s;
   }
 }
 </style>

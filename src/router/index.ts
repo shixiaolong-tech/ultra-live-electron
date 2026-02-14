@@ -1,13 +1,13 @@
 import { createRouter, createWebHashHistory, RouteLocationNormalized, RouteRecordRaw } from 'vue-router'
-import Loading from '../views/Loading.vue';
+import StreamCreate from '../views/StreamCreate.vue';
 import Login from '../views/Login/Index.vue';
 import { isMacPlatform } from '../TUILiveKit/utils/platform';
 
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
-    name: 'loading',
-    component: Loading,
+    name: 'stream',
+    component: StreamCreate,
   },
   {
     path: '/tui-live-kit-main',

@@ -4,7 +4,7 @@
       <svg-icon class="logo-icon">
         <logo-icon></logo-icon>
       </svg-icon>
-      <span class="title">LiveKit</span>
+      <span class="title">推流助手</span>
     </div>
     <div class="right">
       <div class="statistics">
@@ -32,7 +32,7 @@
           </button>
         </div>
         <div v-if="showUserControl" class="user-control-container">
-          <div class="user-control-item-foot" @click="openProfile">{{ t('User Profile') }}</div>
+          <!-- <div class="user-control-item-foot" @click="openProfile">{{ t('User Profile') }}</div> -->
           <div class="user-control-item-foot" @click="handleLogOut">{{ t('Logout') }}</div>
         </div>
       </div>
@@ -73,8 +73,8 @@
 
 <script lang="ts" setup>
 import { onMounted, onBeforeUnmount, ref, defineProps, defineEmits, computed, type Ref } from 'vue';
-import { TUIButton, TUIDialog, useUIKit, IconArrowStrokeSelectDown } from '@tencentcloud/uikit-base-component-vue3';
-import { useLoginState, Avatar } from 'tuikit-atomicx-vue3-electron';
+import { TUIDialog, useUIKit, IconArrowStrokeSelectDown } from '@tencentcloud/uikit-base-component-vue3';
+import { Avatar } from 'tuikit-atomicx-vue3-electron';
 import type { TRTCStatistics } from 'trtc-electron-sdk';
 import SvgIcon from '../../../common/base/SvgIcon.vue';
 import LogoIcon from '../../../common/icons/LogoIcon.vue';
@@ -85,6 +85,7 @@ import CloseIcon from '../../../common/icons/CloseIcon.vue';
 import trtcCloud from '../../../utils/trtcCloud';
 import vClickOutside from '../../../utils/vClickOutside';
 import LiveUserProfile from '../LiveUserProfile/index.vue';
+import { LOCAL_STORAGE_KEY_USER_INFO } from '@/const/local';
 
 const props = defineProps({
   loginButtonVisible: {
@@ -98,8 +99,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useUIKit();
-const loginUserInfo = JSON.parse(window.localStorage.getItem('billion-live-userInfo') || '{}');
-console.log('loginUserInfo', loginUserInfo)
+const loginUserInfo = JSON.parse(window.localStorage.getItem(LOCAL_STORAGE_KEY_USER_INFO) || '{}');
 // User control dropdown state
 const showUserControl = ref(false);
 const showProfileDialog = ref(false);
@@ -249,6 +249,7 @@ onBeforeUnmount(() => {
   -webkit-user-select: none;
   -webkit-app-region: drag;
   background-color: var(--bg-color-topbar);
+  padding: 0 0.5rem;
 
   .left {
     margin-left: 8px;
@@ -266,8 +267,8 @@ onBeforeUnmount(() => {
       font-weight: bold;
     }
     .logo-icon {
-      width: 1.625rem;
-      height: 1.5rem;
+      width: 6rem;
+      height: 1.25rem;
     }
   }
   .header-left {
