@@ -45,7 +45,7 @@
                 内容标签
                 <span class="required">*</span>
               </label>
-              <input type="text" class="form-input" v-model="formData.tags" placeholder="请输入内容标签" />
+              <input type="text" class="form-input" v-model="formData.tags" placeholder="请输入内容标签：BTC, ETH, Web3" />
             </div>
             <!-- 直播封面 -->
             <div class="form-item">
@@ -53,9 +53,17 @@
                 直播封面
                 <span class="required">*</span>
               </label>
+              <p class="form-hint">封面图建议比例 16:9，大小不超过 10MB</p>
               <div class="cover-upload-container">
-                <ImageUpload :value="coverImage" :disabled="isLive" :max-size="1" :aspect-ratio="16 / 9"
-                  placeholder="点击上传封面" class="cover-upload" @change="handleCoverChange" />
+                <ImageUpload 
+                  :value="coverImage" 
+                  :disabled="isLive" 
+                  :max-size="10" 
+                  :aspect-ratio="16 / 9"
+                  placeholder="点击上传图片或拖拽图片到此处(文件大小不能超过 10MB)" 
+                  class="cover-upload" 
+                  @change="handleCoverChange"
+                />
               </div>
             </div>
           </div>
@@ -70,7 +78,8 @@
             :class="{ 'tui-button-disabled': disabledButton }"
             @click="handleStartLive"
           >
-            <span class="button">开始直播</span>
+            <IconLiveLoading v-if="startLiveLoading" class="button-loading-icon" />
+            <span class="button">{{ startLiveLoading ? '创建中...' : '开始直播' }}</span>
           </button>
         </div>
       </div>
@@ -80,6 +89,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import {
+  IconLiveLoading,
   TUIToast,
   UIKitProvider,
 } from '@tencentcloud/uikit-base-component-vue3';
@@ -187,35 +197,40 @@ const goToLogin = () => {
   router.push('/login');
 }
 
+const startLiveLoading = ref(false);
+
 const handleStartLive = async () => {
-  if (disabledButton.value) {
+  if (disabledButton.value || startLiveLoading.value) {
     return;
   }
-  // 创建直播房间
-  const data = {
-    streamingMode: 'RTC',
-    roomName: formData.value.title,
-    roomType: Number(formData.value.category),
-    playingMethod: formData.value.tags,
-    roomImg: coverImage.value || ''
-  }
-  const response = await api.room.createLiveRoom(data)
-  if (response.code === 200 && response.data) {
-    localStorage.setItem(LOCAL_STORAGE_KEY_LIVE_RESULT, JSON.stringify({
-      userId: 'live_' + userInfo.value?.userId,
-      roomName: data.roomName,
-      roomId: response.data?.roomId || 0,
-      userSig: response.data?.userSig || '',
-      sdkAppId: response.data?.sdkAppId,
-      avatarUrl: userInfo.value?.avatarUrl,
-      userName: userInfo.value?.userName || '',
-    }))
-    goToMain()
-  }
-  else {
-    TUIToast.error({
-      message: response.msg,
-    });
+  startLiveLoading.value = true;
+  try {
+    const data = {
+      streamingMode: 'RTC',
+      roomName: formData.value.title,
+      roomType: Number(formData.value.category),
+      playingMethod: formData.value.tags,
+      roomImg: coverImage.value || ''
+    };
+    const response = await api.room.createLiveRoom(data);
+    if (response.code === 200 && response.data) {
+      localStorage.setItem(LOCAL_STORAGE_KEY_LIVE_RESULT, JSON.stringify({
+        userId: 'live_' + userInfo.value?.userId,
+        roomName: data.roomName,
+        roomId: response.data?.roomId || 0,
+        userSig: response.data?.userSig || '',
+        sdkAppId: response.data?.sdkAppId,
+        avatarUrl: userInfo.value?.avatarUrl,
+        userName: userInfo.value?.userName || '',
+      }));
+      goToMain();
+    } else {
+      TUIToast.error({
+        message: response.msg,
+      });
+    }
+  } finally {
+    startLiveLoading.value = false;
   }
 }
 async function goToMain() {
@@ -241,7 +256,7 @@ const isFormValid = computed(() => {
 });
 
 const disabledButton = computed(() => {
-  return isInit.value || !isFormValid.value;
+  return isInit.value || !isFormValid.value || startLiveLoading.value;
 });
 
 onMounted(async () => {
@@ -363,6 +378,12 @@ onMounted(async () => {
   }
 }
 
+.form-hint {
+  font-size: 0.75rem;
+  color: var(--text-color-placeholder, #8b92a8);
+  margin: 0 0 0.25rem 0;
+}
+
 .form-input,
 .form-select {
   width: 100%;
@@ -412,6 +433,15 @@ onMounted(async () => {
   color: #000;
   font-size: 1rem;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  .button-loading-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+  }
   &.tui-button-disabled {
     opacity: 0.5;
     cursor: not-allowed;

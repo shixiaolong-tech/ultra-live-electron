@@ -55,7 +55,6 @@ ipcRenderer.on('port-to-confirm', (event) => {
 });
 
 window.ipcRenderer = ipcRenderer;
-
 window.path = path;
 window.ROOT_PATH = path.join(__dirname, '../');
 window.PUBLIC_PATH = path.join(__dirname);

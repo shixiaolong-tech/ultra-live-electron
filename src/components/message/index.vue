@@ -1,8 +1,14 @@
 <template>
-  <div class="main-right-bottom">
-    <div class="main-right-bottom-header">
+  <div class="main-right-bottom" :class="{ 'message-list-expanded': expanded }" :style="bgStyle">
+    <div class="main-right-bottom-header" v-if="!hideHeader">
       <div class="main-right-bottom-title card-title">
         {{ t("Barrage list") }}
+        <div class="main-right-bottom-title-actions">
+          <div class="main-right-bottom-title-icon" @click="onToggleMaximize">
+            <svg-icon v-if="!expanded" :icon=MiniIcon></svg-icon>
+            <svg-icon v-else :icon=CloseIcon></svg-icon>
+          </div>
+        </div>
       </div>
     </div>
     <div class="message-list-container">
@@ -33,9 +39,12 @@
 </template>
   
 <script setup lang='ts'>
-import { onMounted, computed, ref, defineProps, watch } from 'vue';
+import { onMounted, computed, ref, defineProps, withDefaults, watch, defineEmits } from 'vue';
 import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import { useLiveListState } from 'tuikit-atomicx-vue3-electron';
+import SvgIcon from '@/TUILiveKit/common/base/SvgIcon.vue';
+import MaximizeIcon from '@/TUILiveKit/common/icons/MaximizeIcon.vue';
+import MiniIcon from '@/TUILiveKit/common/icons/MiniIcon.vue';
 import MessageList from '@/components/message/List.vue';
 import CloseIcon from '@/TUILiveKit/common/icons/CloseIcon.vue';
 import { BarrageInput } from '@/components/BarrageInput';
@@ -49,11 +58,25 @@ import {
   type WebSocketMessage,
 } from '@/composables/useWebSocket';
 
-const props = defineProps<{
-  roomId: string;
-  userId: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    hideHeader?: boolean;
+    roomId: string;
+    userId: string;
+    /** 独立窗口模式（在单独的消息列表窗口中时为 true） */
+    standalone?: boolean;
+    /** 页面内展开状态（仅主页面用，不新开窗口时由父组件传入） */
+    expanded?: boolean;
+    /** 背景透明度 0–100，由父组件或 LiveHeader 控制 */
+    bgOpacityPercent?: number;
+  }>(),
+  { standalone: false, hideHeader: false, expanded: false, bgOpacityPercent: 100 }
+);
+const emit = defineEmits<{ (e: 'expand'): void; (e: 'collapse'): void }>();
 const { t, language } = useUIKit();
+
+const bgOpacityValue = computed(() => (props.bgOpacityPercent ?? 100) / 100);
+const bgStyle = computed(() => ({ '--bg-opacity': String(bgOpacityValue.value) }));
 
 console.log('language', language)
 // 连麦-连麦列表
@@ -66,6 +89,20 @@ const totalPage = ref(0);
 const isConnectedLoading = ref(true);
 const userToken = ref<string | null>(null);
 const isPushingLive = ref(false);
+
+const onToggleMaximize = () => {
+  if (props.standalone) {
+    window.ipcRenderer?.send('close-message-list-window');
+    return;
+  }
+  // 页面内展开/收起，不新开窗口，WS 不重连
+  if (props.expanded) {
+    emit('collapse');
+  } else {
+    emit('expand');
+  }
+};
+
 // 发送消息
 const handleSendMessage = (content: InputContent[]) => {
   const currentMessage = content
@@ -294,12 +331,32 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   padding: 16px;
-
+  &.message-list-expanded {
+    background-color: transparent;
+  }
   .main-right-bottom-header {
     display: flex;
     flex-direction: column;
   }
-
+  .main-right-bottom-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    .main-right-bottom-title-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .main-right-bottom-title-icon {
+      cursor: pointer;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
   .message-list-container {
     flex: 1 1 auto;
     user-select: text;
@@ -346,6 +403,10 @@ onMounted(async () => {
       padding: 2px 4px;
       border-radius: 4px;
     }
+  }
+  .card-title {
+    @include text-size-16;
+    @include dividing-line;
   }
 }
 </style>

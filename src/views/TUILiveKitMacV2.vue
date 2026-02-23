@@ -1,9 +1,15 @@
 <template>
   <UIKitProvider language="zh-CN" theme="dark">
-    <div class="tui-livekit-mac-v2">
-      <LiveHeader @logout="handleLogout" />
-      <div class="live-pusher-main">
-        <div class="main-left">
+    <div class="tui-livekit-mac-v2" :class="{ 'message-list-expanded': messageListExpanded }">
+      <LiveHeader
+        :isMessageOnly="messageListExpanded"
+        :message-bg-opacity="messageBgOpacity"
+        @update:message-bg-opacity="messageBgOpacity = $event"
+        @logout="handleLogout"
+        @closeMessageList="messageListExpanded = false"
+      />
+      <div class="live-pusher-main" :class="{ 'message-list-expanded': messageListExpanded }">
+        <div class="main-left" v-if="!messageListExpanded">
           <div class="main-left-top">
             <div class="main-left-top-title card-title">
               <div class="title-text">
@@ -15,7 +21,7 @@
             </div>
           </div>
         </div>
-        <div class="main-center">
+        <div class="main-center" v-if="!messageListExpanded">
           <div class="main-center-top">
             <div class="main-center-top-left">
               <div class="main-center-top-left-owner">
@@ -133,7 +139,7 @@
           </div>
         </div>
         <div class="main-right">
-          <div class="main-right-top">
+          <div class="main-right-top" v-if="!messageListExpanded">
             <div class="main-right-top-title card-title">
               <div class="title-text">
                 {{ t("Online viewers") }}
@@ -142,7 +148,15 @@
             </div>
             <LiveAudienceList height="calc(100% - 40px)" />
           </div>
-          <MessageComponent :roomId="liveParams.liveId" :userId="liveUserInfo?.userId || ''" />
+          <MessageComponent
+            :hide-header="messageListExpanded"
+            :roomId="liveParams.liveId"
+            :userId="liveUserInfo?.userId || ''"
+            :expanded="messageListExpanded"
+            :bg-opacity-percent="messageBgOpacity"
+            @expand="messageListExpanded = true"
+            @collapse="messageListExpanded = false"
+          />
         </div>
         <LivePusherNotification />
         <TUIDialog
@@ -236,10 +250,14 @@ const { connected: coGuestConnected } = useCoGuestState();
 const isInLive = computed(() => !!currentLive.value?.liveId);
 const loading = ref(false);
 const exitLiveDialogVisible = ref(false);
+/** 消息列表是否全屏展开（仅隐藏其他布局，不新开窗口，WS 不重连） */
+const messageListExpanded = ref(false);
+/** 消息区域背景透明度 0–100，仅消息模式时在 LiveHeader 中可调，展开时自动 100 */
+const messageBgOpacity = ref(100);
 const liveResultInfo = ref<Record<string, any> | null>(null);
 const liveUserInfo = ref<Record<string, any> | null>(null);
 const liveParams = computed(() => ({
-  liveId: liveResultInfo.value?.roomId || '',
+  liveId: '10009' || liveResultInfo.value?.roomId || '',
   liveName: liveResultInfo.value?.roomName || '',
   seatMode: props.seatMode || TUISeatMode.kApplyToTake,
 }));
@@ -516,6 +534,12 @@ const reset = () => {
   clearAllLocalStorage();
   router.replace({ name: 'login' });
 }
+
+watch(messageListExpanded, (isMessageOnly) => {
+  window.ipcRenderer?.send('main-window-set-message-only', isMessageOnly);
+  if (isMessageOnly) messageBgOpacity.value = 100;
+});
+
 // 监听麦上用户数据
 watch(
   seatList,
@@ -639,18 +663,18 @@ onBeforeUnmount(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background-color: var(--bg-color-topbar);
 
   .live-pusher-main {
     width: 100%;
-    height: 100%;
+    height: calc(100% - 2.75rem);
     display: flex;
     flex-direction: row;
     user-select: none;
-    padding: 0 12px 12px 12px;
+    padding: 0;
     border-radius: 8px;
     background-color: var(--bg-color-topbar);
     @include scrollbar;
-
     .main-left {
       width: 20%;
       max-width: 320px;
@@ -959,69 +983,13 @@ onBeforeUnmount(() => {
           }
         }
       }
+    }
 
-      .main-right-bottom {
-        flex: 1;
-        background-color: var(--bg-color-operate);
-        color: $text-color1;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        padding: 16px;
-
-        .main-right-bottom-header {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .message-list-container {
-          flex: 1 1 auto;
-          user-select: text;
-          overflow-y: auto;
-          margin: 0 -0.5rem;
-        }
-        .message-input-container {
-          border-top: 1px solid var(--stroke-color-primary);
-          padding-top: 12px;
-        }
-        .reply-preview {
-          display: flex;
-          align-items: start;
-          flex-direction: column;
-          font-size: 12px;
-          margin-bottom: 6px;
-          gap: 4px;
-          .reply-preview-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-          }
-          .reply-preview-header-close {
-            cursor: pointer;
-            width: 14px;
-            height: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            &:hover {
-              color: $icon-hover-color;
-            }
-          }
-          .reply-preview-content {
-            width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            background-color: rgba(255, 255, 255, 0.1);
-            padding: 2px 4px;
-            border-radius: 4px;
-          }
-        }
-      }
+    &.message-list-expanded .main-right {
+      flex: 1;
+      width: auto;
+      max-width: none;
+      min-width: 280px;
     }
   }
   .card-title {
@@ -1032,5 +1000,9 @@ onBeforeUnmount(() => {
     display: flex;
     gap: 10px;
   }
+}
+.message-list-expanded {
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  border-radius: 0 !important;
 }
 </style>

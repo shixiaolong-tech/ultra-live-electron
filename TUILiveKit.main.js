@@ -6,6 +6,7 @@ const {
   ipcMain,
   Menu,
   shell,
+  screen,
 } = require('electron');
 const { exec, spawn } = require('child_process');
 const path = require('path');
@@ -25,7 +26,11 @@ const windowMap = {
   child: null,
   mainCover: null,
   confirm: null,
+  messageList: null,
 };
+
+const MESSAGE_LIST_WINDOW_WIDTH = 380;
+const MESSAGE_LIST_WINDOW_HEIGHT = 520;
 
 const coverWindowRelativeBounds = {
   x: 0,
@@ -104,6 +109,7 @@ function windowOpenHandler(details) {
   }
   return { action: 'deny' };
 }
+
 
 async function createWindow(width = 1366, height = 668) {
   await checkAndApplyDeviceAccessPrivilege();
@@ -209,7 +215,9 @@ function bindIPCEvent() {
     } else if (event.sender === windowMap.child?.webContents) {
       return 'child';
     } else if (event.sender === windowMap.mainCover?.webContents) {
-      return 'cover'
+      return 'cover';
+    } else if (event.sender === windowMap.messageList?.webContents) {
+      return 'message-list';
     } else {
       return '';
     }
@@ -287,6 +295,43 @@ function bindIPCEvent() {
   ipcMain.on('close-child', () => {
     lastChildWindowCommand = '';
     windowMap.child?.hide();
+  });
+
+  const MAIN_WINDOW_NORMAL_MIN = [1200, 650];
+  const MAIN_WINDOW_NORMAL_SIZE = [1200, 750];
+  const MAIN_WINDOW_MESSAGE_ONLY_MIN = [320, 400];
+  const MAIN_WINDOW_MESSAGE_ONLY_SIZE = [420, 680];
+
+  const MESSAGE_ONLY_WINDOW_OPACITY = 0.85;
+
+  ipcMain.on('main-window-set-message-only', (event, isMessageOnly) => {
+    const win = windowMap.main;
+    console.log('main-window-set-message-only', isMessageOnly);
+    if (!win || win.isDestroyed()) return;
+    if (isMessageOnly) {
+      win.setMinimumSize(...MAIN_WINDOW_MESSAGE_ONLY_MIN);
+      win.setSize(...MAIN_WINDOW_MESSAGE_ONLY_SIZE);
+      win.center();
+      if (process.platform === 'darwin' || process.platform === 'win32') {
+        win.setOpacity(MESSAGE_ONLY_WINDOW_OPACITY);
+      }
+      // macOS: 让窗口可悬浮在其它 app 全屏之上（仅消息模式小窗时生效）
+      if (process.platform === 'darwin') {
+        win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+        win.setAlwaysOnTop(true, 'floating');
+      }
+    } else {
+      win.setMinimumSize(...MAIN_WINDOW_NORMAL_MIN);
+      win.setSize(...MAIN_WINDOW_NORMAL_SIZE);
+      win.center();
+      if (process.platform === 'darwin' || process.platform === 'win32') {
+        win.setOpacity(1);
+      }
+      if (process.platform === 'darwin') {
+        win.setAlwaysOnTop(false);
+        win.setVisibleOnAllWorkspaces(false);
+      }
+    }
   });
 
   ipcMain.on('user-login', (event) => {
@@ -492,6 +537,7 @@ function unbindIPCMainEvent() {
   ipcMain.removeAllListeners('start-use-driver-installer');
   ipcMain.removeAllListeners('app-quit-confirmed');
   ipcMain.removeAllListeners('app-quit-cancel');
+  ipcMain.removeAllListeners('main-window-set-message-only');
 }
 
 let initMainWindowTimer = null;
@@ -556,6 +602,11 @@ function bindMainWindowEvent() {
       windowMap.confirm.close();
     }
     windowMap.confirm = null;
+
+    if (windowMap.messageList && !windowMap.messageList.isDestroyed()) {
+      windowMap.messageList.close();
+    }
+    windowMap.messageList = null;
 
     if (initMainWindowTimer) {
       clearTimeout(initMainWindowTimer);

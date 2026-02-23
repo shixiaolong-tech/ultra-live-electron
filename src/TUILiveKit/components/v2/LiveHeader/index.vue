@@ -1,12 +1,12 @@
 <template>
-  <header class="live-header tui-window-header">
+  <header class="live-header tui-window-header" :class="{ 'message-list-expanded': isMessageOnly }">
     <div class="left">
       <svg-icon class="logo-icon">
         <logo-icon></logo-icon>
       </svg-icon>
-      <span class="title">推流助手</span>
+      <span v-if="!isMessageOnly" class="title">推流助手</span>
     </div>
-    <div class="right">
+    <div v-if="!isMessageOnly" class="right">
       <div class="statistics">
         <div class="statistics-container" v-for="(item, index) in statisticsInfoList" :key="item.text">
           <span class="statistics-text">{{ item.text }}</span>
@@ -45,6 +45,26 @@
           <svg-icon v-else :icon="MiniIcon"></svg-icon>
         </button>
         <button class="tui-live-icon" @click="onClose">
+          <svg-icon :icon="CloseIcon"></svg-icon>
+        </button>
+      </div>
+    </div>
+    <div v-if="isMessageOnly" class="right message-only-right">
+      <!-- <div class="message-bg-opacity">
+        <span class="message-bg-opacity-label">背景透明度</span>
+        <input
+          :value="messageBgOpacity"
+          type="range"
+          min="0"
+          max="100"
+          step="5"
+          class="message-bg-opacity-slider"
+          @input="onMessageBgOpacityInput"
+        />
+        <span class="message-bg-opacity-value">{{ messageBgOpacity }}%</span>
+      </div> -->
+      <div class="window-tool">
+        <button class="tui-live-icon" @click="onCloseMessageList">
           <svg-icon :icon="CloseIcon"></svg-icon>
         </button>
       </div>
@@ -88,15 +108,30 @@ import LiveUserProfile from '../LiveUserProfile/index.vue';
 import { LOCAL_STORAGE_KEY_USER_INFO } from '@/const/local';
 
 const props = defineProps({
+  isMessageOnly: {
+    type: Boolean,
+    default: false,
+  },
   loginButtonVisible: {
     type: Boolean,
     default: true,
+  },
+  messageBgOpacity: {
+    type: Number,
+    default: 100,
   },
 });
 
 const emit = defineEmits<{
   logout: [];
+  'update:messageBgOpacity': [value: number];
+  'closeMessageList': [];
 }>();
+
+const onMessageBgOpacityInput = (e: Event) => {
+  const value = Number((e.target as HTMLInputElement).value);
+  emit('update:messageBgOpacity', value);
+};
 
 const { t } = useUIKit();
 const loginUserInfo = JSON.parse(window.localStorage.getItem(LOCAL_STORAGE_KEY_USER_INFO) || '{}');
@@ -174,6 +209,10 @@ const onClose = () => {
   }
 };
 
+const onCloseMessageList = () => {
+  console.log('[LiveHeader]onCloseMessageList');
+  emit('closeMessageList');
+};
 /**
  * Handle user control dropdown toggle
  */
@@ -250,7 +289,9 @@ onBeforeUnmount(() => {
   -webkit-app-region: drag;
   background-color: var(--bg-color-topbar);
   padding: 0 0.5rem;
-
+  &.message-list-expanded {
+    background-color: rgba(0, 0, 0, 0.7);
+  }
   .left {
     margin-left: 8px;
     display: inline-flex;
@@ -296,6 +337,31 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  .message-only-right {
+    -webkit-app-region: no-drag;
+    .message-bg-opacity {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      .message-bg-opacity-label {
+        font-size: 12px;
+        color: var(--text-color-secondary, #8b92a8);
+        white-space: nowrap;
+      }
+      .message-bg-opacity-slider {
+        width: 72px;
+        height: 4px;
+        accent-color: var(--color-primary, #1c66e5);
+        cursor: pointer;
+      }
+      .message-bg-opacity-value {
+        font-size: 12px;
+        min-width: 28px;
+        color: var(--text-color-secondary, #8b92a8);
+      }
+    }
   }
 
   .statistics {
