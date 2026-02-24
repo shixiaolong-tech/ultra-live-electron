@@ -190,7 +190,6 @@ async function createWindow(width = 1366, height = 668) {
   bindCoverWindowEvent();
   bindConfirmWindowEvent();
 
-  console.log('app.isPackagedapp.isPackagedapp.isPackaged', app.isPackaged)
   if (app.isPackaged) {
     windowMap.main.loadFile('dist/index.html');
     windowMap.child.loadFile('dist/index.html');
