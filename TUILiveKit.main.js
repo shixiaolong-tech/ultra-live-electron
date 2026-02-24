@@ -241,7 +241,9 @@ function bindIPCEvent() {
     console.log(`${logPrefix}on-close-window event`);
     // Delegate close behavior to the main window 'close' handler so that
     // the renderer can decide whether the application should actually quit.
-    windowMap.main?.close();
+    if (windowMap.main) {
+      windowMap.main?.close?.();
+    }
   });
 
   ipcMain.on('open-child', (event, args) => {

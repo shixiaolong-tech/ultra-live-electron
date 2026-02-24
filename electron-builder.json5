@@ -2,9 +2,10 @@
  * @see https://www.electron.build/configuration/configuration
  */
 {
-  "productName": "ultra-live-electron",
-  "appId": "com.tencentcloud.trtc.ultra-live-electron",
+  "productName": "billion-live-electron",
+  "appId": "com.billion.trtc.billion-live-electron",
   "asar": false,
+  "icon": "build/icon",
   "directories": {
     "output": "release/${version}"
   },

@@ -1,9 +1,9 @@
 {
-  "name": "ultra-live-electron",
-  "version": "4.3.1",
-  "description": "Tencent Cloud Living and Streaming Tool for desktop and laptop",
+  "name": "billion-live-electron",
+  "version": "0.0.1",
+  "description": "Billion Live Electron",
   "main": "main.js",
-  "author": "Tencent Cloud",
+  "author": "Billion Live",
   "license": "MIT",
   "scripts": {
     "serve": "vue-cli-service serve",
