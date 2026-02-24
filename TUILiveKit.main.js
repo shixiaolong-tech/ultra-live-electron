@@ -120,6 +120,7 @@ async function createWindow(width = 1366, height = 668) {
     minWidth: 1200,
     minHeight: 650,
     frame: false,
+    transparent: true,
     acceptFirstMouse: true,
     webPreferences: {
       preload: path.join(__dirname, 'TUILiveKit.preload.js'),

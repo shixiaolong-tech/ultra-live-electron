@@ -1,26 +1,28 @@
 <template>
-  <UIKitProvider language="zh-CN" theme="dark">
+  <UIKitProvider :language="currentLanguage" theme="dark">
     <div class="tui-livekit-mac-v2">
-      <LiveHeader @logout="handleLogout" />
+      <LiveHeader
+        :language="currentLanguage"
+        @update:language="onLanguageChange"
+        @logout="handleLogout"
+      />
       <div class="live-pusher-main">
         <div class="live-room-info">
           <div class="form-title">
-            <h1>创建直播</h1>
+            <h1>{{ t('streamCreate.createLive') }}</h1>
           </div>
           <div class="form-container">
-            <!-- 直播标题 -->
             <div class="form-item">
               <label class="form-label">
-                直播标题
+                {{ t('streamCreate.liveTitle') }}
                 <span class="required">*</span>
               </label>
-              <input type="text" class="form-input" v-model="formData.title" placeholder="请输入直播标题" />
+              <input type="text" class="form-input" v-model="formData.title" :placeholder="t('streamCreate.enterTitle')" />
             </div>
 
-            <!-- 主题分类 -->
             <div class="form-item">
               <label class="form-label">
-                主题分类
+                {{ t('streamCreate.category') }}
                 <span class="required">*</span>
               </label>
               <select 
@@ -28,7 +30,7 @@
                 v-model="formData.category" 
                 :disabled="isLive || !liveCategory.length"
               >
-                <option value="">请选择主题分类</option>
+                <option value="">{{ t('streamCreate.selectCategory') }}</option>
                 <option 
                   v-for="category in liveCategory" 
                   :key="category.id" 
@@ -39,28 +41,26 @@
               </select>
             </div>
 
-            <!-- 内容标签 -->
             <div class="form-item">
               <label class="form-label">
-                内容标签
+                {{ t('streamCreate.contentTags') }}
                 <span class="required">*</span>
               </label>
-              <input type="text" class="form-input" v-model="formData.tags" placeholder="请输入内容标签：BTC, ETH, Web3" />
+              <input type="text" class="form-input" v-model="formData.tags" :placeholder="t('streamCreate.enterTags')" />
             </div>
-            <!-- 直播封面 -->
             <div class="form-item">
               <label class="form-label">
-                直播封面
+                {{ t('streamCreate.cover') }}
                 <span class="required">*</span>
               </label>
-              <p class="form-hint">封面图建议比例 16:9，大小不超过 10MB</p>
+              <p class="form-hint">{{ t('streamCreate.coverHint') }}</p>
               <div class="cover-upload-container">
                 <ImageUpload 
                   :value="coverImage" 
                   :disabled="isLive" 
                   :max-size="10" 
                   :aspect-ratio="16 / 9"
-                  placeholder="点击上传图片或拖拽图片到此处(文件大小不能超过 10MB)" 
+                  :placeholder="t('streamCreate.uploadCover')" 
                   class="cover-upload" 
                   @change="handleCoverChange"
                 />
@@ -70,7 +70,7 @@
         </div>
         <div class="form-button">
           <div class="form-title">
-            <h1>直播控制</h1>
+            <h1>{{ t('streamCreate.liveControl') }}</h1>
           </div>
           <button 
             class="tui-login-button tui-button-ripple"
@@ -79,7 +79,7 @@
             @click="handleStartLive"
           >
             <IconLiveLoading v-if="startLiveLoading" class="button-loading-icon" />
-            <span class="button">{{ startLiveLoading ? '创建中...' : '开始直播' }}</span>
+            <span class="button">{{ startLiveLoading ? t('streamCreate.creating') : t('streamCreate.startLive') }}</span>
           </button>
         </div>
       </div>
@@ -88,10 +88,12 @@
 </template>
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import trtcCloud from '../TUILiveKit/utils/trtcCloud';
 import {
   IconLiveLoading,
   TUIToast,
   UIKitProvider,
+  useUIKit,
 } from '@tencentcloud/uikit-base-component-vue3';
 import router from '../router';
 import { isMainWindow } from '../TUILiveKit/utils/envUtils';
@@ -103,6 +105,10 @@ import { getUserInfo } from '@/utils/base';
 import { api } from '../lib/api';
 import { LOCAL_STORAGE_KEY_USER_INFO, LOCAL_STORAGE_KEY_TOKEN, LOCAL_STORAGE_KEY_LIVE_RESULT,  clearAllLocalStorage } from '@/const/local';
 
+console.log('TRTC SDK version1:', trtcCloud.getSDKVersion());
+
+const { t } = useUIKit();
+const currentLanguage = ref(window.localStorage.getItem('app-language') || 'zh-CN');
 const userInfo = ref<Record<string, any> | null>(null);
 
 // 表单数据
@@ -119,7 +125,10 @@ const isInit = ref(true); // 是否初始化完成
 const liveCategory = ref<Array<{ id: number; name: string; nameEn: string; imageUrl: string }>>([]); // 直播分类
 const logPrefix = '[Loading.vue]';
 
-
+const onLanguageChange = (lang: string) => {
+  currentLanguage.value = lang;
+  window.localStorage.setItem('app-language', lang);
+};
 const handleCoverChange = (url: string | null) => {
   if (url) {
     coverImage.value = url;
@@ -171,7 +180,7 @@ const fetchData = async () => {
     console.error('fetchData error:', error);
     isInit.value = false;
     TUIToast.error({
-      message: '获取数据失败，请重试',
+      message: t('streamCreate.fetchDataFailed'),
     });
   }
 };

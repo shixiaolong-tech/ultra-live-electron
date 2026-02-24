@@ -14,6 +14,19 @@
           <i class="statistics-space" v-if="index < statisticsInfoList.length - 1"></i>
         </div>
       </div>
+      <div class="language-right">
+        <select
+          :value="language"
+          class="language-select"
+          @change="onLanguageChange($event)"
+        >
+          <option value="zh-CN">中文</option>
+          <option value="en-US">English</option>
+          <option value="ja">日本語</option>
+          <option value="ko">한국어</option>
+          <option value="zh-HK">粤语</option>
+        </select>
+      </div>
       <div class="header-right">
         <div
           v-if="loginUserInfo"
@@ -32,7 +45,6 @@
           </button>
         </div>
         <div v-if="showUserControl" class="user-control-container">
-          <!-- <div class="user-control-item-foot" @click="openProfile">{{ t('User Profile') }}</div> -->
           <div class="user-control-item-foot" @click="handleLogOut">{{ t('Logout') }}</div>
         </div>
       </div>
@@ -50,19 +62,6 @@
       </div>
     </div>
     <div v-if="isMessageOnly" class="right message-only-right">
-      <!-- <div class="message-bg-opacity">
-        <span class="message-bg-opacity-label">背景透明度</span>
-        <input
-          :value="messageBgOpacity"
-          type="range"
-          min="0"
-          max="100"
-          step="5"
-          class="message-bg-opacity-slider"
-          @input="onMessageBgOpacityInput"
-        />
-        <span class="message-bg-opacity-value">{{ messageBgOpacity }}%</span>
-      </div> -->
       <div class="window-tool">
         <button class="tui-live-icon" @click="onCloseMessageList">
           <svg-icon :icon="CloseIcon"></svg-icon>
@@ -120,13 +119,26 @@ const props = defineProps({
     type: Number,
     default: 100,
   },
+  language: {
+    type: String,
+    default: 'zh-CN',
+  },
 });
 
 const emit = defineEmits<{
   logout: [];
   'update:messageBgOpacity': [value: number];
+  'update:language': [value: string];
   'closeMessageList': [];
 }>();
+
+const onLanguageChange = (e: Event) => {
+  const value = (e.target as HTMLSelectElement).value;
+  emit('update:language', value);
+  if (window.ipcRenderer) {
+    window.ipcRenderer.send('set-language', value);
+  }
+};
 
 const onMessageBgOpacityInput = (e: Event) => {
   const value = Number((e.target as HTMLInputElement).value);
@@ -397,6 +409,25 @@ onBeforeUnmount(() => {
       width: 0.0625rem;
       background-color: var(--text-color-primary, #ffffff);
       margin-right: 0.5rem;
+    }
+  }
+
+  .language-right {
+    display: flex;
+    align-items: center;
+    .language-select {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+      color: var(--text-color-primary);
+      background-color: var(--bg-color-operate, #252830);
+      border: 1px solid var(--stroke-color-primary, #3a3d45);
+      border-radius: 0.25rem;
+      cursor: pointer;
+      outline: none;
+      min-width: 5rem;
+      &:focus {
+        border-color: var(--color-primary, #1c66e5);
+      }
     }
   }
 

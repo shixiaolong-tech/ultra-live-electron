@@ -1,10 +1,12 @@
 <template>
-  <UIKitProvider language="zh-CN" theme="dark">
+  <UIKitProvider :language="currentLanguage" theme="dark">
     <div class="tui-livekit-mac-v2" :class="{ 'message-list-expanded': messageListExpanded }">
       <LiveHeader
         :isMessageOnly="messageListExpanded"
         :message-bg-opacity="messageBgOpacity"
+        :language="currentLanguage"
         @update:message-bg-opacity="messageBgOpacity = $event"
+        @update:language="onLanguageChange"
         @logout="handleLogout"
         @closeMessageList="messageListExpanded = false"
       />
@@ -42,7 +44,7 @@
               currentLive?.layoutTemplate === TUISeatLayoutTemplate.LandscapeDynamic_1v3 ? 'landscape' : 'portrait'
             ]"
           >
-            <!-- <StreamMixer /> -->
+            <StreamMixer />
             <!-- 显示麦上观众 -->
             <div
               class="main-center-online-audience"
@@ -127,13 +129,6 @@
                   <IconVideo />
                   {{ t("Enter Live Room") }}
                 </TUIButton>
-                <TUIButton
-                  type="primary"
-                  @click="handleReCreateLive"
-                >
-                  <IconVideo />
-                  重新开播
-                </TUIButton>
               </div>
             </div>
           </div>
@@ -183,6 +178,7 @@
 <script setup lang='ts'>
 import { onMounted, onBeforeUnmount, computed, ref, watch, defineProps } from 'vue';
 import { useRouter } from 'vue-router';
+import trtcCloud from '../TUILiveKit/utils/trtcCloud';
 import {
   IconEndLive,
   IconLiveLoading,
@@ -199,7 +195,6 @@ import {
 } from '@tencentcloud/uikit-base-component-vue3';
 import {
   useLiveSeatState,
-  useLoginState,
   useLiveAudienceState,
   useLiveListState,
   useDeviceState,
@@ -210,9 +205,7 @@ import {
   DeviceStatus,
   Avatar,
 } from 'tuikit-atomicx-vue3-electron';
-import TUIRoomEngine, {
-  TUISeatMode,
-} from '@tencentcloud/tuiroom-engine-electron';
+import TUIRoomEngine, { TUISeatMode } from '@tencentcloud/tuiroom-engine-electron';
 import { TUISeatLayoutTemplate } from '@/TUILiveKit/types';
 import { useElectronLogin } from '../TUILiveKit/hooks/useElectronLogin';
 import MessageComponent from '@/components/message/index.vue'
@@ -232,8 +225,9 @@ import { api } from '../lib/api';
 import { LOCAL_STORAGE_KEY_USER_INFO, LOCAL_STORAGE_KEY_LIVE_RESULT, LOCAL_STORAGE_KEY_TOKEN, clearAllLocalStorage } from '@/const/local';
 import { getUserInfo } from '@/utils/base';
 
+console.log('TRTC SDK version:', trtcCloud.getSDKVersion());
+
 const router = useRouter();
-const { loginUserInfo } = useLoginState();
 const { t, language } = useUIKit();
 
 const props = defineProps<{
@@ -254,10 +248,16 @@ const exitLiveDialogVisible = ref(false);
 const messageListExpanded = ref(false);
 /** 消息区域背景透明度 0–100，仅消息模式时在 LiveHeader 中可调，展开时自动 100 */
 const messageBgOpacity = ref(100);
+/** 当前界面语言（与 LiveHeader 语言选择联动） */
+const currentLanguage = ref(window.localStorage.getItem('app-language') || 'zh-CN');
+const onLanguageChange = (lang: string) => {
+  currentLanguage.value = lang;
+  window.localStorage.setItem('app-language', lang);
+};
 const liveResultInfo = ref<Record<string, any> | null>(null);
 const liveUserInfo = ref<Record<string, any> | null>(null);
 const liveParams = computed(() => ({
-  liveId: '10009' || liveResultInfo.value?.roomId || '',
+  liveId: liveResultInfo.value?.roomId.toString() || '',
   liveName: liveResultInfo.value?.roomName || '',
   seatMode: props.seatMode || TUISeatMode.kApplyToTake,
 }));
@@ -266,8 +266,6 @@ const liveParams = computed(() => ({
 const isPushingLive = ref(false);
 // 连麦-麦上用户列表
 const liveSeatList = ref<any>([]);
-// 直播间状态轮询定时器
-let liveStatusPollingTimer: number | null = null;
 
 TUIRoomEngine.once('ready', () => {
   TUIRoomEngine.callExperimentalAPI(JSON.stringify({
@@ -330,27 +328,6 @@ const handleCreateLive = async () => {
       return;
     }
     loading.value = true;
-    // 更新直播
-    const res = await api.room.updateRoomStatus({
-      roomId: liveParams.value.liveId,
-      status: 1,
-    });
-  
-    if (res.code !== 200) {
-      if (res.code === 202) {
-        TUIToast.error({
-          message: t('Live Room Closed Redirect Message'),
-        });
-        setTimeout(() => {
-          router.replace({ name: 'stream' });
-        }, 3000);
-        return;
-      }
-      TUIToast.error({
-        message: t('Failed to update live status'),
-      });
-      return;
-    }
     await TUIRoomEngine.callExperimentalAPI(
       JSON.stringify({
         api: 'enableUnlimitedRoom',
@@ -386,10 +363,31 @@ const handleCreateLive = async () => {
     console.log('创建直播间', params);
     const liveInfo = await createLive(params);
     console.log('创建直播间结果', liveInfo);
+    // 更新直播状态
+    const res = await api.room.updateRoomStatus({
+      roomId: liveParams.value.liveId,
+      status: 1,
+    });
+    if (res.code !== 200) {
+      if (res.code === 202) {
+        TUIToast.error({
+          message: t('Live Room Closed Redirect Message'),
+        });
+        setTimeout(() => {
+          router.replace({ name: 'stream' });
+        }, 3000);
+        return;
+      }
+      TUIToast.error({
+        message: t('Failed to update live status'),
+      });
+      return;
+    }
     // 加入直播间
-    await joinLive({
+    const joinLiveRes = await joinLive({
       liveId: liveParams.value.liveId,
     });
+    console.log('加入直播间结果', joinLiveRes);
     loading.value = false;
     isPushingLive.value = true;
     await openLocalMicrophone();
@@ -461,12 +459,8 @@ const handleEndLive = async () => {
     exitLiveDialogVisible.value = false;
   } finally {
     window.localStorage.removeItem(LOCAL_STORAGE_KEY_LIVE_RESULT);
+    router.replace({ name: 'stream' });
   }
-};
-
-const handleReCreateLive = async () => {
-  await handleEndLive();
-  router.replace({ name: 'stream' });
 };
 
 /** Handles app quit request (e.g. Cmd+Q / close main window): confirm end live then quit or cancel. */
@@ -632,6 +626,7 @@ onMounted(async () => {
   // 获取直播信息，开始登录
   try {
     const { sdkAppId, userSig, userId, userName, avatarUrl } = liveResultInfo.value || {};
+    console.log('ym-开始登录', sdkAppId, userSig, userId, userName, avatarUrl);
     // 开始登录
     await loginWithRetry({
       sdkAppId,
