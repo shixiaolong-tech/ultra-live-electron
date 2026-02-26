@@ -1,57 +1,72 @@
 <template>
-  <div class="tui-login-page">
-    <div class="tui-login-header">
-      <div class="window-tool tui-window-header">
-        <button class="tui-live-icon" @click="onMinimize">
-          <svg-icon :icon=MinimizeIcon></svg-icon>
-        </button>
-        <button class="tui-live-icon" @click="onToggleMaximize">
-          <svg-icon v-if="!isMaximized" :icon=MaximizeIcon></svg-icon>
-          <svg-icon v-else :icon=MiniIcon></svg-icon>
-        </button>
-        <button class="tui-live-icon" @click="onClose">
-          <svg-icon :icon=CloseIcon ></svg-icon>
-        </button>
-      </div>
-    </div>
-    <div class="tui-login-body">
-      <div class="tui-login-logo">
-      </div>
-      <div class="tui-login-form">
-        <div class="tui-login-form-title">
-          <span>{{t('Live Streaming Assistant')}}</span>
-        </div>
-        <div class="tui-login-type-container">
-          <span :class="{active:loginType===LoginType.UserAccount}" @click="onChangeLoginType(LoginType.UserAccount)">{{ t('Account Login')}}</span>
-        </div>
-        <div class="tui-login-options">
-          <secret-key-form
-            :login-state="loginState"
-            :verify-states="verifyStates"
-            @update:user-id="value => loginState.userId = value"
-            />
-          <button 
-            class="tui-login-button" 
-            :class="{
-              'tui-login-button-disabled': !loginState.userId,
-              'tui-button-ripple': loginState.userId
-            }"
-            :disabled="!loginState.userId" 
-            @click="handleLogin">
-            <span class="button">{{ !isLoggingIn ? t('Log In') : t('Logging In')}}</span>
+  <UIKitProvider :language="currentLanguage" theme="dark">  
+    <div class="tui-login-page" :data-locale="i18n.global.locale.value">
+      <div class="tui-login-header">
+        <div class="window-tool tui-window-header">
+          <div class="language-right">
+            <select
+              :value="currentLanguage"
+              class="language-select"
+              @change="onLanguageChange($event)"
+            >
+              <option value="zh-CN">中文</option>
+              <option value="en-US">English</option>
+              <option value="ja">日本語</option>
+              <option value="ko">한국어</option>
+              <option value="zh-HK">粤语</option>
+            </select>
+          </div>
+          <button class="tui-live-icon" @click="onMinimize">
+            <svg-icon :icon=MinimizeIcon></svg-icon>
+          </button>
+          <button class="tui-live-icon" @click="onToggleMaximize">
+            <svg-icon v-if="!isMaximized" :icon=MaximizeIcon></svg-icon>
+            <svg-icon v-else :icon=MiniIcon></svg-icon>
+          </button>
+          <button class="tui-live-icon" @click="onClose">
+            <svg-icon :icon=CloseIcon ></svg-icon>
           </button>
         </div>
       </div>
+      <div class="tui-login-body">
+        <div class="tui-login-logo">
+        </div>
+        <div class="tui-login-form">
+          <div class="tui-login-form-title">
+            <span>{{t('Live Streaming Assistant')}}</span>
+          </div>
+          <div class="tui-login-type-container">
+            <span :class="{active:loginType===LoginType.UserAccount}" @click="onChangeLoginType(LoginType.UserAccount)">{{ t('Account Login')}}</span>
+          </div>
+          <div class="tui-login-options">
+            <secret-key-form
+              :login-state="loginState"
+              :verify-states="verifyStates"
+              @update:user-id="value => loginState.userId = value"
+              />
+            <button 
+              class="tui-login-button" 
+              :class="{
+                'tui-login-button-disabled': !loginState.userId,
+                'tui-button-ripple': loginState.userId
+              }"
+              :disabled="!loginState.userId" 
+              @click="handleLogin">
+              <span class="button">{{ !isLoggingIn ? t('Log In') : t('Logging In')}}</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
+  </UIKitProvider>
 </template>
 
 <script setup lang="ts">
 import { ref, Ref, reactive, onMounted } from 'vue';
+import { UIKitProvider } from '@tencentcloud/uikit-base-component-vue3';
 import router from '../../router';
 import { getWindowType } from '../../TUILiveKit/utils/envUtils';
-import { useI18n } from '../../TUILiveKit/locales';
-import { getBasicInfo } from '../../debug/basic-info-config.js';
+import i18n, { useI18n } from '../../TUILiveKit/locales';
 import SvgIcon from '../../TUILiveKit/common/base/SvgIcon.vue';
 import MaximizeIcon from '../../TUILiveKit/common/icons/MaximizeIcon.vue';
 import MinimizeIcon from '../../TUILiveKit/common/icons/MinimizeIcon.vue';
@@ -61,10 +76,8 @@ import TUIMessageBox from '../../TUILiveKit/common/base/MessageBox';
 import SecretKeyForm from './SecretKeyForm.vue';
 import logger from '../../TUILiveKit/utils/logger';
 import { LoginType, LoginState, VerifyStates } from './types';
-import { SDKAppID } from '../../debug/basic-info-config.js';
 import { api } from '../../lib/api';
-
-const serverURL = ''; // ********** Please config your login server URL *********
+import { LOCAL_STORAGE_KEY_TOKEN, LOCAL_STORAGE_KEY_USER_INFO } from '@/const/local';
 
 const loginState:LoginState = reactive({
   privacyGuide: '',
@@ -89,12 +102,23 @@ const verifyStates:VerifyStates = reactive({
 
 const { t } = useI18n();
 
+const currentLanguage = ref(window.localStorage.getItem('app-language') || 'zh-CN');
 const loginType: Ref<LoginType> = ref(LoginType.SDKSecretKey);
 const isLoggingIn = ref(false);
 
 const onChangeLoginType = (type: LoginType) => {
   loginType.value = type;
 }
+
+const onLanguageChange = (e: Event) => {
+  const lang = (e.target as HTMLSelectElement).value;
+  currentLanguage.value = lang;
+  window.localStorage.setItem('app-language', lang);
+  i18n.global.locale.value = lang;
+  if (window.ipcRenderer) {
+    window.ipcRenderer.send('set-language', lang);
+  }
+};
 
 async function handleLogin() {
   isLoggingIn.value = true;
@@ -104,7 +128,7 @@ async function handleLogin() {
   }
   const response = await api.assistant.loginByCode(loginState.userId.trim());
   if (response.code === 200 && response.data) {
-    window.localStorage.setItem('billion-live-token', response.data.token);
+    window.localStorage.setItem(LOCAL_STORAGE_KEY_TOKEN, response.data.token);
     // 获取个人信息
     await getUserInfo();
   } else {
@@ -118,8 +142,7 @@ async function handleLogin() {
 
 async function getUserInfo() {
   const userInfoResponse = await api.user.getUserInfo();
-  window.localStorage.setItem('billion-live-userInfo', JSON.stringify({
-    sdkAppId: SDKAppID,
+  window.localStorage.setItem(LOCAL_STORAGE_KEY_USER_INFO, JSON.stringify({
     userId: userInfoResponse.data?.userId,
     userName: userInfoResponse.data?.name,
     userSig: userInfoResponse.data?.userSig,
@@ -192,13 +215,30 @@ function onClose() {
   --font-size-primary: 1rem;
   --font-size-secondary: 0.75rem;
   height: 100%;
-
+  background-color: var(--bg-color-topbar);
   .tui-input-icon {
     flex: 0 0 1.25rem;
     width: 1.25rem;
     height: 1.25rem;
   }
-
+  .language-right {
+    display: flex;
+    align-items: center;
+    .language-select {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+      color: var(--text-color-primary);
+      background-color: var(--bg-color-operate, #252830);
+      border: 1px solid var(--stroke-color-primary, #3a3d45);
+      border-radius: 0.25rem;
+      cursor: pointer;
+      outline: none;
+      min-width: 5rem;
+      &:focus {
+        border-color: var(--color-primary, #1c66e5);
+      }
+    }
+  }
   .tui-login-header {
     height: 2.75rem;
     .window-tool{

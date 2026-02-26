@@ -190,6 +190,7 @@ export default {
   'Account Login': 'Account Login',
   'Enter SDKAPPID': 'Enter SDKAPPID',
   'Enter user ID': 'Enter user ID',
+  'Enter user login code': 'Enter user login code',
   'User signature': 'User signature',
   'SDK secret key': 'SDK secret key',
   'Password': 'Password',

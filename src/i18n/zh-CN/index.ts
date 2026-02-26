@@ -221,4 +221,5 @@ export const resource = {
   'streamCreate.enterTags': '请输入内容标签：BTC, ETH, Web3',
   'streamCreate.uploadCover': '点击上传图片或拖拽图片到此处(文件大小不能超过 10MB)',
   'streamCreate.fetchDataFailed': '获取数据失败，请重试',
+  'streamCreate.startLiveFailed': '开始直播失败，请重试',
 };

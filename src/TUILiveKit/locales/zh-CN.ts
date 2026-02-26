@@ -190,6 +190,7 @@ export default {
   'Account Login': '账号登录',
   'Enter SDKAPPID': '请输入 SDKAPPID',
   'Enter user ID': '请输入用户 ID',
+  'Enter user login code': '请输入用户登录码',
   'User signature': '请输入用户签名',
   'SDK secret key': '请输入 SDK 密钥',
   'Password': '请输入您的密码',

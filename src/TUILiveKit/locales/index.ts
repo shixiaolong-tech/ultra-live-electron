@@ -27,7 +27,12 @@
 import { getLanguage } from '../utils/common';
 import ZH from './zh-CN';
 import EN from './en-US';
+import JA from './ja';
+import KO from './ko';
+import ZH_HK from './zh-HK';
 import { ref } from 'vue';
+
+const SUPPORTED_LOCALES = ['zh-CN', 'en-US', 'ja', 'ko', 'zh-HK'] as const;
 
 const locale = ref('');
 class TUIKitI18n {
@@ -59,12 +64,16 @@ class TUIKitI18n {
   }
 }
 
-const language = getLanguage();
+const stored = typeof window !== 'undefined' ? window.localStorage?.getItem('app-language') : null;
+const language = (stored && (SUPPORTED_LOCALES as readonly string[]).includes(stored)) ? stored : getLanguage();
 const i18n = new TUIKitI18n({
   locale: language,
   messages: {
     'zh-CN': ZH,
     'en-US': EN,
+    'ja': JA,
+    'ko': KO,
+    'zh-HK': ZH_HK,
   },
 });
 

@@ -187,4 +187,5 @@ export const resource = {
   'streamCreate.enterTags': 'Enter tags e.g. BTC, ETH, Web3',
   'streamCreate.uploadCover': 'Click or drag to upload (max 10MB)',
   'streamCreate.fetchDataFailed': 'Failed to load data, please retry',
+  'streamCreate.startLiveFailed': 'Failed to start live, please retry',
 };

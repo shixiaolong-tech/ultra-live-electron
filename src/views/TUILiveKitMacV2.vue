@@ -11,7 +11,7 @@
         @closeMessageList="messageListExpanded = false"
       />
       <div class="live-pusher-main" :class="{ 'message-list-expanded': messageListExpanded }">
-        <div class="main-left" v-if="!messageListExpanded">
+        <div class="main-left" v-show="!messageListExpanded">
           <div class="main-left-top">
             <div class="main-left-top-title card-title">
               <div class="title-text">
@@ -23,7 +23,7 @@
             </div>
           </div>
         </div>
-        <div class="main-center" v-if="!messageListExpanded">
+        <div class="main-center" v-show="!messageListExpanded">
           <div class="main-center-top">
             <div class="main-center-top-left">
               <div class="main-center-top-left-owner">
@@ -121,14 +121,14 @@
                   <IconEndLive v-else />
                   {{ t("End live") }}
                 </TUIButton>
-                <TUIButton
+                <!-- <TUIButton
                   :disabled="!currentLive?.liveId"
                   color="orange"
                   type="primary"
                 >
                   <IconVideo />
                   {{ t("Enter Live Room") }}
-                </TUIButton>
+                </TUIButton> -->
               </div>
             </div>
           </div>

@@ -233,12 +233,19 @@ const handleStartLive = async () => {
         userName: userInfo.value?.userName || '',
       }));
       goToMain();
-    } else {
+    }
+    else {
       TUIToast.error({
         message: response.msg,
       });
     }
-  } finally {
+  } catch (error) {
+    console.error('handleStartLive error:', error);
+    TUIToast.error({
+      message: t('streamCreate.startLiveFailed'),
+    });
+  }
+  finally {
     startLiveLoading.value = false;
   }
 }
@@ -450,6 +457,7 @@ onMounted(async () => {
     width: 1.25rem;
     height: 1.25rem;
     flex-shrink: 0;
+    animation: spin 1s linear infinite;
   }
   &.tui-button-disabled {
     opacity: 0.5;
@@ -471,6 +479,14 @@ onMounted(async () => {
     background-color: #34e907;
     background-size: 100%;
     transition: all 0s;
+  }
+}
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 </style>

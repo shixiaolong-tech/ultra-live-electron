@@ -43,7 +43,6 @@ import { onMounted, computed, ref, defineProps, withDefaults, watch, defineEmits
 import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import { useLiveListState } from 'tuikit-atomicx-vue3-electron';
 import SvgIcon from '@/TUILiveKit/common/base/SvgIcon.vue';
-import MaximizeIcon from '@/TUILiveKit/common/icons/MaximizeIcon.vue';
 import MiniIcon from '@/TUILiveKit/common/icons/MiniIcon.vue';
 import MessageList from '@/components/message/List.vue';
 import CloseIcon from '@/TUILiveKit/common/icons/CloseIcon.vue';
@@ -57,6 +56,7 @@ import {
   useWebSocket,
   type WebSocketMessage,
 } from '@/composables/useWebSocket';
+import { LOCAL_STORAGE_KEY_TOKEN } from '@/const/local';
 
 const props = withDefaults(
   defineProps<{
@@ -227,9 +227,9 @@ const initWebSocket = () => {
   }
 
   // 获取 token
-  const token = window.localStorage.getItem('billion-live-token') || userToken.value || '';
+  const token = window.localStorage.getItem(LOCAL_STORAGE_KEY_TOKEN) || userToken.value || '';
   const userId = props.userId || '';
-  console.log('userId', userId)
+  console.log('ym-userId', userId)
   const ws = useWebSocket({
     autoReconnect: false,
     isLive: true,
@@ -302,21 +302,14 @@ watch(isInLive, (newVal) => {
   immediate: true,
   deep: true,
 });
-
-onMounted(async () => {
-  try {
-    // 通过 billion-liveResult 里面的 roomId 进行入口判断
-    // 注意：liveParams.value.liveId 是从 liveResultInfo.value?.roomId 计算出来的
-    // 所以这里直接使用 roomId 来判断
-    if (props.roomId ) {
-      // 初始化 WebSocket 和聊天列表
-      initWebSocket();
-      // 加载聊天列表
-      await selectRoomChatList();
-    }
-  } catch (e) {
-    console.error('获取直播间聊天列表失败:', e);
+watch(() => props.roomId, (newVal) => {
+  if (newVal) {
+    initWebSocket();
+    selectRoomChatList();
   }
+}, {
+  immediate: true,
+  deep: true,
 });
 </script>
   

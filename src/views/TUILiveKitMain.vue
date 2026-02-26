@@ -25,9 +25,9 @@ const { t } = useI18n();
 const isInited = ref(false);
 
 const gotoLogin = () => {
-  // window.localStorage.removeItem('billion-live-userInfo');
-  // window.ipcRenderer.send('user-logout');
-  // router.replace('/login');
+  window.localStorage.removeItem('billion-live-userInfo');
+  window.ipcRenderer.send('user-logout');
+  router.replace('/login');
 };
 
 const handleLogout = () => {

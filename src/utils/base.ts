@@ -1,13 +1,12 @@
 import { api } from '@/lib/api';
 import { LoginType } from '@/views/Login/types';
-import { LOCAL_STORAGE_KEY_USER_INFO, SDKAppID } from '@/const/local';
+import { LOCAL_STORAGE_KEY_USER_INFO } from '@/const/local';
 
 export const getUserInfo = async () => {
   try {
     const userInfoResponse = await api.user.getUserInfo();
     if (userInfoResponse.code === 200 && userInfoResponse.data) {
       const data = {
-        sdkAppId: SDKAppID,
         userId: userInfoResponse.data?.userId,
         userName: userInfoResponse.data?.name,
         userSig: userInfoResponse.data?.userSig,
