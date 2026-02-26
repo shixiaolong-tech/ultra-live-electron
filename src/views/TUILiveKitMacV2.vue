@@ -301,7 +301,25 @@ const {
 // Handle logout with live status check
 const handleLogout = async () => {
   try {
-    await handleElectronLogout();
+    // 如果直播中的话，则提示一个警告信息
+    if (isInLive.value) {
+      TUIMessageBox.confirm({
+        title: t('Note'),
+        content: t('liveConfirm.logoutWhileLive'),
+        confirmText: t('Sure'),
+        cancelText: t('Cancel'),
+        callback: async (action) => {
+          if (action !== 'confirm') {
+            return;
+          }
+          await handleEndLive();
+          await handleElectronLogout();
+        },
+      });
+    }
+    else {
+      await handleElectronLogout();
+    }
   } catch (error) {
     reset();
   }

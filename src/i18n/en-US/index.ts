@@ -188,4 +188,5 @@ export const resource = {
   'streamCreate.uploadCover': 'Click or drag to upload (max 10MB)',
   'streamCreate.fetchDataFailed': 'Failed to load data, please retry',
   'streamCreate.startLiveFailed': 'Failed to start live, please retry',
+  'liveConfirm.logoutWhileLive': 'You are currently live. Logging out will end the live. Are you sure you want to log out?',
 };

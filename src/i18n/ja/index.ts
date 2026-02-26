@@ -210,4 +210,5 @@ export const resource = {
   'streamCreate.uploadCover': 'クリックまたはドラッグでアップロード（10MB以下）',
   'streamCreate.fetchDataFailed': 'データの取得に失敗しました。再試行してください',
   'streamCreate.startLiveFailed': 'ライブ開始に失敗しました。再試行してください',
+  'liveConfirm.logoutWhileLive': '現在ライブ配信中です。ログアウトするとライブが終了します。ログアウトしますか？',
 };

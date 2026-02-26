@@ -210,4 +210,5 @@ export const resource = {
   'streamCreate.uploadCover': '클릭 또는 드래그하여 업로드 (최대 10MB)',
   'streamCreate.fetchDataFailed': '데이터를 불러오지 못했습니다. 다시 시도해 주세요',
   'streamCreate.startLiveFailed': '라이브 시작에 실패했습니다. 다시 시도해 주세요',
+  'liveConfirm.logoutWhileLive': '현재 라이브 중입니다. 로그아웃하면 라이브가 종료됩니다. 로그아웃하시겠습니까?',
 };

@@ -4,7 +4,7 @@
       <LiveHeader
         :language="currentLanguage"
         @update:language="onLanguageChange"
-        @logout="handleLogout"
+        @logout="reset"
       />
       <div class="live-pusher-main">
         <div class="live-room-info">
@@ -98,7 +98,6 @@ import {
 import router from '../router';
 import { isMainWindow } from '../TUILiveKit/utils/envUtils';
 import logger from '../TUILiveKit/utils/logger';
-import { useElectronLogin } from '../TUILiveKit/hooks/useElectronLogin';
 import ImageUpload from '../components/ImageUpload.vue';
 import LiveHeader from '../TUILiveKit/components/v2/LiveHeader/index.vue';
 import { getUserInfo } from '@/utils/base';
@@ -183,22 +182,6 @@ const fetchData = async () => {
       message: t('streamCreate.fetchDataFailed'),
     });
   }
-};
-
-// Setup useElectronLogin Hook
-const {
-  handleLogout: handleElectronLogout,
-} = useElectronLogin({
-  onLogout: () => {
-    reset();
-  },
-  onLoginFailed: () => {
-    reset();
-  },
-});
-
-const handleLogout = () => {
-  handleElectronLogout();
 };
 
 // 跳转到登录页面

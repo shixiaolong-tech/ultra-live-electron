@@ -210,4 +210,5 @@ export const resource = {
   'streamCreate.uploadCover': '點擊上傳圖片或拖拽圖片到此處（文件大小唔超過 10MB）',
   'streamCreate.fetchDataFailed': '獲取數據失敗，請重試',
   'streamCreate.startLiveFailed': '開始直播失敗，請重試',
+  'liveConfirm.logoutWhileLive': '你當前正在直播中，退出之後將斷開直播，是否確定退出？',
 };
