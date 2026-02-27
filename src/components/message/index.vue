@@ -30,6 +30,7 @@
         </div>
       </div>
       <BarrageInput
+        :disabled="!isInLive"
         height="56px"
         :placeholder="isInLive ? '' : t('Live not started')"
         @send="handleSendMessage"
@@ -78,7 +79,6 @@ const { t, language } = useUIKit();
 const bgOpacityValue = computed(() => (props.bgOpacityPercent ?? 100) / 100);
 const bgStyle = computed(() => ({ '--bg-opacity': String(bgOpacityValue.value) }));
 
-console.log('language', language)
 // 连麦-连麦列表
 const { currentLive } = useLiveListState();
 const isInLive = computed(() => !!currentLive.value?.liveId);

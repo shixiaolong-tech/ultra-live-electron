@@ -211,4 +211,9 @@ export const resource = {
   'streamCreate.fetchDataFailed': '데이터를 불러오지 못했습니다. 다시 시도해 주세요',
   'streamCreate.startLiveFailed': '라이브 시작에 실패했습니다. 다시 시도해 주세요',
   'liveConfirm.logoutWhileLive': '현재 라이브 중입니다. 로그아웃하면 라이브가 종료됩니다. 로그아웃하시겠습니까?',
+  'Say something': '메시지를 입력하세요...',
+  'You have been muted': '채팅이 제한되었습니다',
+  Send: '보내기',
+  'you have been forbidden to speak': '채팅이 제한되었습니다',
+  'send message failed': '전송 실패',
 };

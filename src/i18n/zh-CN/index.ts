@@ -223,4 +223,11 @@ export const resource = {
   'streamCreate.fetchDataFailed': '获取数据失败，请重试',
   'streamCreate.startLiveFailed': '开始直播失败，请重试',
   'liveConfirm.logoutWhileLive': '你当前正在直播中，退出之后将断开直播，是否确定退出？',
+
+  // 消息列表
+  'Say something': '说点什么...',
+  'You have been muted': '您已被禁言',
+  Send: '发送',
+  'you have been forbidden to speak': '您已被禁言',
+  'send message failed': '发送失败',
 };

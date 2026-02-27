@@ -211,4 +211,9 @@ export const resource = {
   'streamCreate.fetchDataFailed': '獲取數據失敗，請重試',
   'streamCreate.startLiveFailed': '開始直播失敗，請重試',
   'liveConfirm.logoutWhileLive': '你當前正在直播中，退出之後將斷開直播，是否確定退出？',
+  'Say something': '講啲咩...',
+  'You have been muted': '你已被禁言',
+  Send: '發送',
+  'you have been forbidden to speak': '你已被禁言',
+  'send message failed': '發送失敗',
 };

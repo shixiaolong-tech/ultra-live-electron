@@ -134,7 +134,7 @@ async function handleLogin() {
   } else {
     TUIMessageBox({
       title: t('Note'),
-      message: response.msg,
+      message: currentLanguage.value === 'zh-CN' ? response.msg : response.enMsg || response.msg,
       confirmButtonText: t('Sure'),
     });
   }

@@ -318,6 +318,8 @@ const handleLogout = async () => {
       });
     }
     else {
+      // 关播
+      await stopLiveWithTRTC();
       await handleElectronLogout();
     }
   } catch (error) {
@@ -334,6 +336,15 @@ const endLiveDialogMessage = computed(() => {
   return t('You are currently live streaming. Do you want to end it?');
 });
 
+const stopLiveWithTRTC = async () => {
+  if (liveParams.value.liveId) {
+    try {
+      await api.room.stopLiveWithTRTC(Number(liveParams.value.liveId));
+    } catch (error) {
+      console.error('停止TRTC失败:', error);
+    }
+  }
+};
 const handleCreateLive = async () => {
   try {
     if (loading.value) {
@@ -450,13 +461,7 @@ const handleEndLive = async () => {
     loading.value = true;
     exitLiveDialogVisible.value = false;
     // 停止TRTC
-    if (liveParams.value.liveId) {
-      try {
-        await api.room.stopLiveWithTRTC(Number(liveParams.value.liveId));
-      } catch (error) {
-        console.error('停止TRTC失败:', error);
-      }
-    }
+    await stopLiveWithTRTC();
     // 更新直播状态
     await endLive();
     isPushingLive.value = false;

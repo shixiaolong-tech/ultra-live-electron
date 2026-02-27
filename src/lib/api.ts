@@ -15,6 +15,7 @@ export const getWebSocketEndpoint = () => WS_URL;
 export interface ApiResponse<T = any> {
   code: number;
   msg: string;
+  enMsg?: string;
   data?: T;
 }
 export const devToken = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxMDExIiwiaWF0IjoxNzU5MTEzNjcyLCJleHAiOjE3NjE3MDU2NzIsInRva2VuSWQiOiJiYmVkNmM4OTMxOTI0YzAxODU5NzhhYjI3OTY2NGRkYyJ9.i69e0KP5M2PctJ8Ltt9Yz-FsQ4SnpUYgVi_3waXA2EV2PWxFzXTZZBdIZ00G5e1ot5257Ok16hPhx3xfmwM1LA'
