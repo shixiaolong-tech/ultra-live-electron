@@ -25,20 +25,26 @@
                 {{ t('streamCreate.category') }}
                 <span class="required">*</span>
               </label>
-              <select 
-                class="form-select" 
-                v-model="formData.category" 
+              <TUISelect
+                class="form-select"
+                :modelValue="formData.category.toString()"
+                :teleported="false"
+                :popper-append-to-body="false"
                 :disabled="isLive || !liveCategory.length"
+                :placeholder="t('streamCreate.selectCategory')"
+                @change="handleCategoryChange"
               >
-                <option value="">{{ t('streamCreate.selectCategory') }}</option>
-                <option 
-                  v-for="category in liveCategory" 
-                  :key="category.id" 
-                  :value="String(category.id)"
+                <TUIOption
+                  v-for="item in liveCategory"
+                  :key="item.id"
+                  :value="item.id.toString()"
+                  :label="getLangName(item.name, item.nameEn)"
+                  class="category-option"
                 >
-                  {{ category.name }}
-                </option>
-              </select>
+                  <img :src="item.imageUrl" :alt="item.name" class="category-image"/>
+                  {{ getLangName(item.name, item.nameEn) }}
+                </TUIOption>
+              </TUISelect>
             </div>
 
             <div class="form-item">
@@ -94,6 +100,8 @@ import {
   TUIToast,
   UIKitProvider,
   useUIKit,
+  TUISelect,
+  TUIOption
 } from '@tencentcloud/uikit-base-component-vue3';
 import router from '../router';
 import { isMainWindow } from '../TUILiveKit/utils/envUtils';
@@ -101,6 +109,7 @@ import logger from '../TUILiveKit/utils/logger';
 import ImageUpload from '../components/ImageUpload.vue';
 import LiveHeader from '../TUILiveKit/components/v2/LiveHeader/index.vue';
 import { getUserInfo } from '@/utils/base';
+import { getLangName } from '@/utils/local';
 import { api } from '../lib/api';
 import { LOCAL_STORAGE_KEY_USER_INFO, LOCAL_STORAGE_KEY_TOKEN, LOCAL_STORAGE_KEY_LIVE_RESULT,  clearAllLocalStorage } from '@/const/local';
 
@@ -127,6 +136,10 @@ const logPrefix = '[Loading.vue]';
 const onLanguageChange = (lang: string) => {
   currentLanguage.value = lang;
   window.localStorage.setItem('app-language', lang);
+};
+
+const handleCategoryChange = (value: string) => {
+  formData.value.category = value;
 };
 const handleCoverChange = (url: string | null) => {
   if (url) {
@@ -383,8 +396,7 @@ onMounted(async () => {
   margin: 0 0 0.25rem 0;
 }
 
-.form-input,
-.form-select {
+.form-input {
   width: 100%;
   padding: 0.75rem 1rem;
   background-color: var(--bg-color-operate);
@@ -409,10 +421,17 @@ onMounted(async () => {
 .form-select {
   cursor: pointer;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23adb6cc' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 1rem center;
-  padding-right: 2.5rem;
+  .category-image {
+    width: 1rem;
+    height: 1rem;
+    margin-right: 0.5rem;
+  }
+  .category-option {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+  }
 }
 .cover-upload-container {
   display: flex;
