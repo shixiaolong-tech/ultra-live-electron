@@ -29,10 +29,10 @@
               <div class="main-center-top-left-owner">
                 <div class="main-center-top-left-owner-name">
                   <span class="main-center-top-left-owner-name-text">
-                    直播间名称：{{ liveParams.liveName }}
+                    {{ t('liveRoom.nameLabel') }}{{ liveParams.liveName }}
                   </span>
                   <span class="main-center-top-left-owner-name-id">
-                    直播间ID：{{ liveParams.liveId }}
+                    {{ t('liveRoom.idLabel') }}{{ liveParams.liveId }}
                   </span>
                 </div>
               </div>
@@ -392,6 +392,14 @@ const handleCreateLive = async () => {
     console.log('创建直播间', params);
     const liveInfo = await createLive(params);
     console.log('创建直播间结果', liveInfo);
+    // 加入直播间
+    const joinLiveRes = await joinLive({
+      liveId: liveParams.value.liveId,
+    });
+    console.log('加入直播间结果', joinLiveRes);
+    loading.value = false;
+    isPushingLive.value = true;
+    await openLocalMicrophone();
     // 更新直播状态
     const res = await api.room.updateRoomStatus({
       roomId: liveParams.value.liveId,
@@ -412,14 +420,6 @@ const handleCreateLive = async () => {
       });
       return;
     }
-    // 加入直播间
-    const joinLiveRes = await joinLive({
-      liveId: liveParams.value.liveId,
-    });
-    console.log('加入直播间结果', joinLiveRes);
-    loading.value = false;
-    isPushingLive.value = true;
-    await openLocalMicrophone();
     // 成功
     TUIToast.success({
       message: t('Live started successfully'),
@@ -656,7 +656,7 @@ onMounted(async () => {
       userId,
       userSig,
       userName,
-      avatarUrl,
+      avatarUrl: avatarUrl || '',
     });
     console.log('登录成功');
   } catch (e) {

@@ -1,5 +1,5 @@
 <template>
-  <div class="live-message-input">
+  <div ref="containerRef" class="live-message-input">
     <div
       :class="['message-input-container', containerClass, disabledAndPlaceholder.disabled && 'disabled']"
       :style="containerStyle"
@@ -9,7 +9,7 @@
         :placeholder="disabledAndPlaceholder.placeholder"
         :disabled="disabledAndPlaceholder.disabled"
         :autoFocus="autoFocus"
-        :maxLength="props.maxLength"
+        :maxLength="maxLength"
         @focus="emit('focus')"
         @blur="emit('blur')"
         @change="handleChange"
@@ -29,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineProps, withDefaults, defineEmits } from 'vue';
+import { computed, defineProps, withDefaults, defineEmits, ref } from 'vue';
 import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import {
   useLiveAudienceState,
@@ -38,6 +38,7 @@ import {
 import { EmojiPicker } from './EmojiPicker';
 import TextEditor from './TextEditor/TextEditor.vue';
 import type { InputContent } from './type';
+import { useMessageInputState } from './MessageInputState';
 
 const emit = defineEmits<{
   (e: 'focus'): void;
@@ -46,6 +47,8 @@ const emit = defineEmits<{
   (e: 'send', content: InputContent[]): void;
 }>();
 const { t } = useUIKit();
+const { focusEditor } = useMessageInputState();
+const containerRef = ref<HTMLElement | null>(null);
 const { loginUserInfo } = useLoginState();
 const { audienceList } = useLiveAudienceState();
 
@@ -99,6 +102,9 @@ const disabledAndPlaceholder = computed(() => {
 });
 
 const handleChange = (content: InputContent[]) => {
+  if (document.activeElement && containerRef.value && !containerRef.value.contains(document.activeElement)) {
+    focusEditor();
+  }
   emit('change', content);
 };
 

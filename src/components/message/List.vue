@@ -5,7 +5,7 @@
   <template v-else>
     <template v-for="(item, index) in messagesWithHTML" :key="index">
       <div
-        v-if="!item.isNewMessage"
+        v-if="item.messageType"
         :class="[
           'message-item',
           {
@@ -42,7 +42,7 @@
             coinSymbol: item.content?.symbol || '',
             coinIcon: item.content?.icon || '',
           }"
-          :size="4"
+          :size="16"
           class="crypto-icon"
         />
         <span class="trade-amount">
@@ -97,7 +97,7 @@
               {{ t('liveDetail.broadcaster') }}
             </span>
             <span
-              v-if="Number(userId) === Number(item.userId)"
+              v-if="Number(roomInfo?.userId) === Number(item.userId)"
               class="self-tag"
             >
               {{ t('dynamic.comment.self') }}
@@ -135,16 +135,6 @@
         </div>
       </template>
       </div>
-      
-      <!-- 新消息提示 -->
-      <div v-if="item.isNewMessage" class="new-message-notice">
-        <div class="notice-divider">
-          <i class="divider-line"></i>
-          {{ t('liveDetail.notice') }}
-          <i class="divider-line"></i>
-        </div>
-        <span class="welcome-message">{{ t('liveDetail.welcomeMessage') }}</span>
-      </div>
     </template>
   </template>
 </template>
@@ -168,7 +158,6 @@ interface WebSocketMessage {
     userName: string;
     content: string;
   };
-  isNewMessage?: boolean;
   isSuperAdmin?: boolean;
   consumeLevel?: number;
   lighted?: boolean;
@@ -247,7 +236,7 @@ const handleReply = (message: WebSocketMessage) => {
   }
 
   &.gradient-bg {
-    background: linear-gradient(to right, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.15));
+    background: linear-gradient(to right, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.1));
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
@@ -291,7 +280,7 @@ const handleReply = (message: WebSocketMessage) => {
   gap: 0.5rem;
   align-items: center;
   flex-wrap: wrap;
-  color: #1890FF;
+  color: #33ff00;
 }
 
 .broadcaster-label {
@@ -301,7 +290,7 @@ const handleReply = (message: WebSocketMessage) => {
 }
 
 .trade-type {
-  color: #1890FF;
+  color: #33ff00;
   font-weight: bold;
 }
 
@@ -310,7 +299,7 @@ const handleReply = (message: WebSocketMessage) => {
 }
 
 .trade-amount {
-  color: #1890FF;
+  color: #33ff00;
   font-weight: 500;
 }
 
@@ -338,7 +327,7 @@ const handleReply = (message: WebSocketMessage) => {
 }
 
 .sent-label {
-  color: #1890FF;
+  color: #33ff00;
   font-weight: bold;
 }
 
@@ -349,7 +338,7 @@ const handleReply = (message: WebSocketMessage) => {
 
 .gift-info {
   font-size: 0.75rem;
-  color: #1890FF;
+  color: #33ff00;
   font-weight: 500;
 }
 
@@ -441,30 +430,5 @@ const handleReply = (message: WebSocketMessage) => {
   width: 1rem;
   height: 1rem;
   flex: none;
-}
-
-.new-message-notice {
-  display: flex;
-  flex-direction: column;
-  color: rgba(255, 255, 255, 0.75);
-  padding-bottom: 0.5rem;
-}
-
-.notice-divider {
-  display: flex;
-  align-items: center;
-  font-size: 0.75rem;
-  gap: 1rem;
-  padding: 0.5rem 0;
-}
-
-.divider-line {
-  background-color: rgba(255, 255, 255, 0.5);
-  height: 1px;
-  flex: 1 1 auto;
-}
-
-.welcome-message {
-  font-size: 0.75rem;
 }
 </style>

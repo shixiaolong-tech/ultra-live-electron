@@ -1,3 +1,5 @@
+import { api } from '@/lib/api';
+
 // 本地存储的 key
 export const LOCAL_STORAGE_KEY_USER_INFO = 'billion-live-userInfo';
 export const LOCAL_STORAGE_KEY_LIVE_RESULT = 'billion-liveResult';
@@ -12,4 +14,5 @@ export const clearAllLocalStorage = () => {
   window.localStorage.removeItem(LOCAL_STORAGE_KEY_USER_INFO);
   window.localStorage.removeItem(LOCAL_STORAGE_KEY_LIVE_RESULT);
   window.localStorage.removeItem(LOCAL_STORAGE_KEY_TOKEN);
+  api.resetToken('');
 }

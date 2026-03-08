@@ -18,7 +18,6 @@ export interface ApiResponse<T = any> {
   enMsg?: string;
   data?: T;
 }
-export const devToken = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxMDExIiwiaWF0IjoxNzU5MTEzNjcyLCJleHAiOjE3NjE3MDU2NzIsInRva2VuSWQiOiJiYmVkNmM4OTMxOTI0YzAxODU5NzhhYjI3OTY2NGRkYyJ9.i69e0KP5M2PctJ8Ltt9Yz-FsQ4SnpUYgVi_3waXA2EV2PWxFzXTZZBdIZ00G5e1ot5257Ok16hPhx3xfmwM1LA'
 
 export const getUserToken = () => {
   try {
@@ -71,6 +70,11 @@ class ApiClient {
     this.token = getUserToken();
   }
 
+  // 重置token
+  resetToken(token: string) {
+    console.log('重置token', token)
+    this.token = token;
+  }
   // 通用请求方法
   private async request<T = any>(
     endpoint: string,
@@ -153,6 +157,10 @@ export const apiClient = new ApiClient(API_BASE_URL);
 
 // API服务
 export const api = {
+  // 重置token
+  resetToken: (token: string) => {
+    apiClient.resetToken(token);
+  },
   user: {
     // 获取用户详细信息
     getUserInfo: () => apiClient.get<UserProfile>('/app/user/getUserProfile'),

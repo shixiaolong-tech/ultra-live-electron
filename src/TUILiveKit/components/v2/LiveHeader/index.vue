@@ -4,7 +4,7 @@
       <svg-icon class="logo-icon">
         <logo-icon></logo-icon>
       </svg-icon>
-      <span v-if="!isMessageOnly" class="title">推流助手</span>
+      <span v-if="!isMessageOnly" class="title">{{ t('liveHeader.title') }}</span>
     </div>
     <div v-if="!isMessageOnly" class="right">
       <div class="statistics">
@@ -104,7 +104,7 @@ import CloseIcon from '../../../common/icons/CloseIcon.vue';
 import trtcCloud from '../../../utils/trtcCloud';
 import vClickOutside from '../../../utils/vClickOutside';
 import LiveUserProfile from '../LiveUserProfile/index.vue';
-import { LOCAL_STORAGE_KEY_USER_INFO } from '@/const/local';
+import { LOCAL_STORAGE_KEY_USER_INFO, clearAllLocalStorage } from '@/const/local';
 
 const props = defineProps({
   isMessageOnly: {
@@ -273,6 +273,8 @@ function handleProfileCancel() {
  */
 function handleLogOut() {
   showUserControl.value = false;
+  // 重置token
+  clearAllLocalStorage();
   emit('logout');
 }
 

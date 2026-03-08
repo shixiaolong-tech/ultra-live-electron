@@ -111,7 +111,7 @@ import LiveHeader from '../TUILiveKit/components/v2/LiveHeader/index.vue';
 import { getUserInfo } from '@/utils/base';
 import { getLangName } from '@/utils/local';
 import { api } from '../lib/api';
-import { LOCAL_STORAGE_KEY_USER_INFO, LOCAL_STORAGE_KEY_TOKEN, LOCAL_STORAGE_KEY_LIVE_RESULT,  clearAllLocalStorage } from '@/const/local';
+import { LOCAL_STORAGE_KEY_USER_INFO, LOCAL_STORAGE_KEY_TOKEN, LOCAL_STORAGE_KEY_LIVE_RESULT } from '@/const/local';
 
 console.log('TRTC SDK version1:', trtcCloud.getSDKVersion());
 
@@ -225,7 +225,7 @@ const handleStartLive = async () => {
         roomId: response.data?.roomId || 0,
         userSig: response.data?.userSig || '',
         sdkAppId: response.data?.sdkAppId,
-        avatarUrl: userInfo.value?.avatarUrl,
+        avatarUrl: userInfo.value?.avatarUrl || '',
         userName: userInfo.value?.userName || '',
       }));
       goToMain();
@@ -258,7 +258,6 @@ async function goToMain() {
 
 // 重置
 const reset = () => {
-  clearAllLocalStorage();
   goToLogin();
 }
 // 表单是否填写完整（必填：标题、主题分类、内容标签、直播封面）

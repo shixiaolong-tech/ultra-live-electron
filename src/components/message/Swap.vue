@@ -1,7 +1,6 @@
 <template>
   <div class="live-swap-message">
     <div class="swap-badge">
-      <span class="badge-icon">⇄</span>
       {{ t('liveDetail.swap') }}
     </div>
     <div class="swap-user-info">
@@ -27,12 +26,11 @@
       <div class="amount-item">
         {{ formatPrice(content.fromAmount || 0) }} {{ content?.fromSymbol || '' }}
       </div>
-      <span class="arrow-icon">→</span>
+      <span class="arrow-icon">
+        <TUIIcon color="#fff" size="10px" :icon="IconArrowRight" />
+      </span>
       <div class="amount-item">
         ≈ {{ formatPrice(content.amount || 0) }} {{ content?.symbol || '' }}
-      </div>
-      <div class="thumbs-up-icon">
-        <span class="thumbs-icon">👍</span>
       </div>
       <span class="total-price">
         (${{ totalPrice }})
@@ -56,7 +54,7 @@
 import { computed, defineProps } from 'vue';
 import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import UserLevel from './UserLevel.vue';
-import Tooltip from './Tooltip.vue';
+import { TUIIcon, IconArrowRight } from '@tencentcloud/uikit-base-component-vue3';
 import { formatPrice, convertAddress } from './utils';
 
 interface Props {
@@ -89,7 +87,7 @@ const { t } = useUIKit();
 
 const totalPrice = computed(() => {
   const price = props.content?.totalPrice || 0;
-  return formatPrice(price);
+  return price < 0.01 ? '< 0.01' : formatPrice(price);
 });
 
 const handleUserClick = () => {
@@ -199,6 +197,9 @@ const handleHashClick = () => {
 .arrow-icon {
   width: 0.625rem;
   height: 0.625rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .thumbs-up-icon {

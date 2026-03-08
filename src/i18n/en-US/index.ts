@@ -189,9 +189,12 @@ export const resource = {
   'streamCreate.fetchDataFailed': 'Failed to load data, please retry',
   'streamCreate.startLiveFailed': 'Failed to start live, please retry',
   'liveConfirm.logoutWhileLive': 'You are currently live. Logging out will end the live. Are you sure you want to log out?',
+  'liveHeader.title': 'Streaming Assistant',
   'Say something': 'Say something...',
   'You have been muted': 'You have been muted',
   Send: 'Send',
   'you have been forbidden to speak': 'You have been muted',
   'send message failed': 'Failed to send',
+  'liveRoom.nameLabel': 'Live room name: ',
+  'liveRoom.idLabel': 'Live room ID: ',
 };

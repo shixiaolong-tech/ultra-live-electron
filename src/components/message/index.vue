@@ -12,7 +12,7 @@
       </div>
     </div>
     <div class="message-list-container">
-      <MessageList :isLive="true" :messages="messages" @reply="handleReply" />
+      <MessageList :isLive="true" :roomInfo="{ userId: props.userId }" :messages="messages" @reply="handleReply" />
     </div>
     <div class="message-input-container">
       <div v-if="replyMessage" class="reply-preview">
@@ -116,7 +116,6 @@ const handleSendMessage = (content: InputContent[]) => {
       return '';
     })
     .join('');
-  console.log('发送信息', currentMessage);
   if (currentMessage.trim()) {
     // 拼接一下
     const message = {
@@ -189,28 +188,10 @@ const selectRoomChatList = async () => {
       limit: 1000,
       roomId: Number(props.roomId),
     });
-
-    // 是否在直播
-    const isLive = isInLive.value;
     totalPage.value = res.data?.totalPage || 0;
     // 消息格式处理
     const { messagesList } = formatMessageContent(res.data?.list || []);
-    // 第一次加载的时候，将最后一条插入isNewMessage
     messages.value = [...(messagesList || []), ...messages.value];
-    if (isLive && messagesList && messagesList.length > 0) {
-      // 检查是否已经存在 isNewMessage 为 true 的消息
-      const hasNewMessageMarker = messages.value.some(
-        (msg) => msg.isNewMessage === true
-      );
-      if (!hasNewMessageMarker) {
-        messages.value = [
-          ...messages.value,
-          {
-            isNewMessage: true,
-          } as unknown as WebSocketMessage,
-        ];
-      }
-    }
   } catch (error) {
     console.error('获取直播间聊天列表失败:', error);
   }
@@ -241,36 +222,6 @@ const initWebSocket = () => {
       // 直播间关闭
       if (message.type === '7') {
         isPushingLive.value = false;
-        return;
-      }
-      // 禁言
-      if (message.type === '10') {
-        // 可以在这里处理禁言逻辑
-        return;
-      }
-      // 直播暂停
-      if (message.type === '11') {
-        // 可以在这里处理直播暂停逻辑
-        return;
-      }
-      // 直播重新推流
-      if (message.type === '12') {
-        // 可以在这里处理直播重新推流逻辑
-        return;
-      }
-      // 跟单不加载消息
-      if (message.type === '8') {
-        // 可以在这里处理跟单消息
-        return;
-      }
-      // 跟单
-      if (message.type === '9') {
-        // 可以在这里处理跟单消息
-        return;
-      }
-      // 礼物消息
-      if (message.type === '5') {
-        // 可以在这里处理礼物消息
         return;
       }
       // 普通消息

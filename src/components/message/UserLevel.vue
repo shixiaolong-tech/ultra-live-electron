@@ -6,6 +6,7 @@
 
 <script setup lang="ts">
 import { defineProps } from 'vue';
+
 interface Props {
   level?: number;
   isDarkMode?: boolean;
@@ -16,16 +17,16 @@ defineProps<Props>();
 
 <style lang="scss" scoped>
 .user-level {
-  display: inline-block;
-  padding: 0.125rem 0.25rem;
-  border-radius: 0.125rem;
-  font-size: 0.625rem;
-  font-weight: bold;
-  background-color: rgba(24, 144, 255, 0.2);
-  color: #1890FF;
-
+  border-radius: 9999px;
+  padding: 0.125rem 0.375rem;
+  background-color: rgba(255, 255, 255, 0.1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.5625rem;
+  height: 1rem;
+  color: #33ff00;
   &.dark-mode {
-    background-color: rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.7);
   }
 }

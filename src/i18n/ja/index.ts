@@ -211,9 +211,12 @@ export const resource = {
   'streamCreate.fetchDataFailed': 'データの取得に失敗しました。再試行してください',
   'streamCreate.startLiveFailed': 'ライブ開始に失敗しました。再試行してください',
   'liveConfirm.logoutWhileLive': '現在ライブ配信中です。ログアウトするとライブが終了します。ログアウトしますか？',
+  'liveHeader.title': '配信アシスタント',
   'Say something': '何か入力...',
   'You have been muted': 'ミュートされました',
   Send: '送信',
   'you have been forbidden to speak': 'ミュートされました',
   'send message failed': '送信に失敗しました',
+  'liveRoom.nameLabel': 'ライブルーム名：',
+  'liveRoom.idLabel': 'ライブルームID：',
 };
