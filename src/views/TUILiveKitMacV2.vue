@@ -1,5 +1,5 @@
 <template>
-  <UIKitProvider language="zh-CN" theme="dark">
+  <UIKitProvider theme="dark">
     <div class="tui-livekit-mac-v2">
       <LiveHeader @logout="handleLogout" />
       <div class="live-pusher-main">
