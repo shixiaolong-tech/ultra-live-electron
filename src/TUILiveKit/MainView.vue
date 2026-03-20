@@ -214,6 +214,7 @@ onUnmounted(() => {
   if (basicStore.isLiving) {
     stopLiving();
   }
+  clearLiveRoomInfo();
   window.removeEventListener('beforeunload', onBeforeUnload);
 });
 

@@ -1,28 +1,26 @@
 <template>
-    <TUILiveKitMain
-      v-if="liveMode === TUILiveModeType.Normal"
-      ref="liveKitRef"
-      @on-logout="handleLogout"
-      @on-login-failed="handleLoginFailed"
-      @on-kicked-off-line="handleKickedOffLine"
-      @on-user-sig-expired="handleUserSigExpired"
-      @on-user-auth-changed="handleUserAuthChanged"
-      @on-live-mode-changed="handleLiveModeChanged"/>
-    <TUIRobotView
-      v-else
-      ref="liveKitRef"
-      @on-logout="handleLogout"
-      @on-login-failed="handleLoginFailed"
-      @on-kicked-off-line="handleKickedOffLine"
-      @on-user-sig-expired="handleUserSigExpired"
-      @on-user-auth-changed="handleUserAuthChanged"
-      @on-live-mode-changed="handleLiveModeChanged"/>
-    />
-
+  <TUILiveKitMain
+    v-if="liveMode === TUILiveModeType.Normal"
+    ref="liveKitRef"
+    @on-logout="handleLogout"
+    @on-login-failed="handleLoginFailed"
+    @on-kicked-off-line="handleKickedOffLine"
+    @on-user-sig-expired="handleUserSigExpired"
+    @on-user-auth-changed="handleUserAuthChanged"
+    @on-live-mode-changed="handleLiveModeChanged"/>
+  <TUIRobotView
+    v-else
+    ref="liveKitRef"
+    @on-logout="handleLogout"
+    @on-login-failed="handleLoginFailed"
+    @on-kicked-off-line="handleKickedOffLine"
+    @on-user-sig-expired="handleUserSigExpired"
+    @on-user-auth-changed="handleUserAuthChanged"
+    @on-live-mode-changed="handleLiveModeChanged"/>
 </template>
 
 <script setup lang="ts">
-import { ref, Ref, onMounted, onBeforeUnmount, onBeforeMount } from 'vue';
+import { ref, Ref, onMounted, onBeforeUnmount, onBeforeMount, nextTick } from 'vue';
 import router from '../router';
 import TUILiveKitMain from '../TUILiveKit/MainView.vue';
 import TUIRobotView from '../TUILiveKit/RobotView.vue';
@@ -69,8 +67,16 @@ const handleUserAuthChanged = (userInfo: Record<string, any>) => {
   }));
 };
 
-const handleLiveModeChanged = (mode: TUILiveModeType) => {
-  liveMode.value = mode;
+const handleLiveModeChanged = async (mode: TUILiveModeType) => {
+  if (mode !== liveMode.value) {
+    liveMode.value = mode;
+    isInited.value = false;
+    await nextTick();
+    const userInfo = window.localStorage.getItem('TUILiveKit-userInfo');
+    if (userInfo) {
+      init(JSON.parse(userInfo));
+    }
+  }
 };
 
 async function init(userInfo: Record<string, any>) {

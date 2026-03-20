@@ -115,6 +115,7 @@ export default {
   'Live Mode': '直播模式',
   'Normal Mode': '常规模式',
   'Robot Streaming Mode': '机器人推流模式',
+  'Please enter live room ID': '请输入直播间号',
   'Window': '窗口',
   'Screen': '屏幕',
   'Rename': '重命名',

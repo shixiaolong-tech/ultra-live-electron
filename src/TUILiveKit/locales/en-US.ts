@@ -115,6 +115,7 @@ export default {
   'Live Mode': 'Live Mode',
   'Normal Mode': 'Normal Mode',
   'Robot Streaming Mode': 'Robot Streaming Mode',
+  'Please enter live room ID': 'Please enter live room ID',
   'Window': 'Window',
   'Screen': 'Screen',
   'Rename': 'Rename',

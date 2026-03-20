@@ -76,10 +76,10 @@
       </div>
     </div>
     <div v-if="isShowVideoEncode" class="tui-video-encode">
-      <div class="options-container">
+      <!-- <div class="options-container">
         <span class="options-container-title">{{t('Background color')}}</span>
         <TUIColorPicker class="options-container-input" :currentColor="backgroundColor" @change="onChangeBgColor"></TUIColorPicker>
-      </div>
+      </div> -->
       <div class="options-container">
         <span class="options-container-title">{{t('Video resolution')}}</span>
         <TUISelect
@@ -170,13 +170,13 @@
           />
         </TUISelect>
       </div>
-      <div class="options-container" style="display: inline-flex;flex-direction:row;">
+      <!-- <div class="options-container" style="display: inline-flex;flex-direction:row;">
         <TUISwitch :model-value="isHevcEncodeEnabled" label="H265" @update:modelValue="toggleHevcMode"></TUISwitch>
-      </div>
-      <div class="options-container">
+      </div> -->
+      <!-- <div class="options-container">
         <span class="options-container-title">{{t('Selected border color')}}</span>
         <TUIColorPicker class="options-container-input" :currentColor="selectedBorderColor" @change="onChangeBorderColor"></TUIColorPicker>
-      </div>
+      </div> -->
     </div>
   </div>
 </template>

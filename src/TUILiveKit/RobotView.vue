@@ -7,7 +7,7 @@
     <div class="tui-live-layout">
       <div class="tui-layout-left">
         <LiveMode :modelValue="TUILiveModeType.Robot" @change="handleLiveModeChanged"/>
-        <input class="tui-input-live-id" v-model="robotLiveId" />
+        <input class="tui-input-live-id" v-model="robotLiveId" :placeholder="t('Please enter live room ID')" />
         <TUILiveButton
           @click="handleChangeLiveRoomStatus"
           :class="['tui-btn-live-switch', isInLiveRoom ? 'is-in-live-room' : '']"
@@ -20,6 +20,7 @@
       </div>
       <div class="tui-layout-middle">
         <div class="tui-live-preview-container">
+          <LivePreviewHeader />
           <div class="tui-live-preview" id="live-preview-id"></div>
         </div>
         <!-- <div class="tui-live-controller-container">
@@ -61,6 +62,7 @@ import TUIRoomEngine, {
 import { TUIConnectionMode, TUILiveModeType } from './types';
 import LiveHeader from './components/LiveHeader/Index.vue';
 import LiveMode from './components/LiveMode/Index.vue';
+import LivePreviewHeader from './components/LivePreview/PreviewHeader.vue';
 import LiveMember from './components/LiveMember/Index.vue';
 import LiveMessage from './components/LiveMessage/Index.vue';
 import TUILiveButton from './common/base/Button.vue';
@@ -168,6 +170,7 @@ onUnmounted(() => {
   if (basicStore.isLiving) {
     leaveLive();
   }
+  clearLiveRoomInfo();
   window.removeEventListener('beforeunload', onBeforeUnload);
 });
 
@@ -1238,8 +1241,7 @@ onBeforeUnmount(() => {
 
   .tui-live-preview-container {
     flex: 1 1 auto;
-    // height: calc(100% - 4rem);
-    height: 100;
+    height: calc(100% - 2.5rem);
     background-color: var(--bg-color-operate);
     color: var(--text-color-primary);
 
