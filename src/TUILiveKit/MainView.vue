@@ -6,6 +6,7 @@
     />
     <div class="tui-live-layout">
       <div class="tui-layout-left">
+        <LiveMode :modelValue="TUILiveModeType.Normal" @change="handleLiveModeChanged"/>
         <div class="tui-live-config-container">
           <live-config @edit-media-source="onEditMediaSource" />
         </div>
@@ -61,8 +62,9 @@ import TUIRoomEngine, {
   TUILiveGiftManagerEvents,
   TUIGiftInfo,
 } from '@tencentcloud/tuiroom-engine-electron';
-import { TUIConnectionMode, TUIMediaSourceViewModel } from './types';
+import { TUIConnectionMode, TUILiveModeType, TUIMediaSourceViewModel } from './types';
 import LiveHeader from './components/LiveHeader/Index.vue';
+import LiveMode from './components/LiveMode/Index.vue';
 import LiveConfig from './components/LiveConfig/Index.vue';
 import LiveMoreTool from './components/LiveMoreTool/Index.vue';
 import LivePreview from './components/LivePreview/Index.vue';
@@ -109,6 +111,7 @@ const emit = defineEmits([
   'on-kicked-off-line',
   'on-user-sig-expired',
   'on-user-auth-changed',
+  'on-live-mode-changed',
 ]);
 
 const mediaMixingManager = useMediaMixingManager();
@@ -228,6 +231,12 @@ watch(() => [basicStore.userId, basicStore.userName, basicStore.userSig, basicSt
 // ***************** LiveKit interface start *****************
 function _generateRoomId() {
   return `live_${Math.floor(Math.random() * 1000 * 1000)}`;
+}
+
+function handleLiveModeChanged(mode: TUILiveModeType) {
+  if (mode !== TUILiveModeType.Normal) {
+    emit('on-live-mode-changed', mode);
+  }
 }
 
 async function startLiving() {

@@ -114,3 +114,8 @@ export type TUIButtonAction = {
   value: string;
   type: TUIButtonActionType;
 }
+
+export enum TUILiveModeType {
+  Normal = 'normal',
+  Robot = 'robot',
+}

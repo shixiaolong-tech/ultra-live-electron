@@ -6,7 +6,8 @@
     />
     <div class="tui-live-layout">
       <div class="tui-layout-left">
-        <input v-model="robotLiveId" />
+        <LiveMode :modelValue="TUILiveModeType.Robot" @change="handleLiveModeChanged"/>
+        <input class="tui-input-live-id" v-model="robotLiveId" />
         <TUILiveButton
           @click="handleChangeLiveRoomStatus"
           :class="['tui-btn-live-switch', isInLiveRoom ? 'is-in-live-room' : '']"
@@ -57,8 +58,9 @@ import TUIRoomEngine, {
   TUIVideoStreamType,
   TUIChangeReason,
 } from '@tencentcloud/tuiroom-engine-electron';
-import { TUIConnectionMode } from './types';
+import { TUIConnectionMode, TUILiveModeType } from './types';
 import LiveHeader from './components/LiveHeader/Index.vue';
+import LiveMode from './components/LiveMode/Index.vue';
 import LiveMember from './components/LiveMember/Index.vue';
 import LiveMessage from './components/LiveMessage/Index.vue';
 import TUILiveButton from './common/base/Button.vue';
@@ -101,6 +103,7 @@ const emit = defineEmits([
   'on-kicked-off-line',
   'on-user-sig-expired',
   'on-user-auth-changed',
+  'on-live-mode-changed',
 ]);
 
 const robotLiveId: Ref<string> = ref('');
@@ -182,6 +185,12 @@ watch(() => [basicStore.userId, basicStore.userName, basicStore.userSig, basicSt
 // ***************** LiveKit interface start *****************
 function _generateRoomId() {
   return `live_${Math.floor(Math.random() * 1000 * 1000)}`;
+}
+
+function handleLiveModeChanged(mode: TUILiveModeType) {
+  if (mode !== TUILiveModeType.Robot) {
+    emit('on-live-mode-changed', mode);
+  }
 }
 
 async function handleChangeLiveRoomStatus() {
@@ -1152,7 +1161,7 @@ onBeforeUnmount(() => {
     padding: 1rem;
     gap: 0.5rem;
 
-    input {
+    .tui-input-live-id {
       padding: 0.5rem;
       border: 1px solid var(--border-color-default);
       border-radius: 0.25rem;

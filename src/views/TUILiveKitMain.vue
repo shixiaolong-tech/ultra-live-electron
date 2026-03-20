@@ -1,15 +1,28 @@
 <template>
-    <TUIRobotView
+    <TUILiveKitMain
+      v-if="liveMode === TUILiveModeType.Normal"
       ref="liveKitRef"
       @on-logout="handleLogout"
       @on-login-failed="handleLoginFailed"
       @on-kicked-off-line="handleKickedOffLine"
       @on-user-sig-expired="handleUserSigExpired"
-      @on-user-auth-changed="handleUserAuthChanged"/>
+      @on-user-auth-changed="handleUserAuthChanged"
+      @on-live-mode-changed="handleLiveModeChanged"/>
+    <TUIRobotView
+      v-else
+      ref="liveKitRef"
+      @on-logout="handleLogout"
+      @on-login-failed="handleLoginFailed"
+      @on-kicked-off-line="handleKickedOffLine"
+      @on-user-sig-expired="handleUserSigExpired"
+      @on-user-auth-changed="handleUserAuthChanged"
+      @on-live-mode-changed="handleLiveModeChanged"/>
+    />
+
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, onBeforeMount } from 'vue';
+import { ref, Ref, onMounted, onBeforeUnmount, onBeforeMount } from 'vue';
 import router from '../router';
 import TUILiveKitMain from '../TUILiveKit/MainView.vue';
 import TUIRobotView from '../TUILiveKit/RobotView.vue';
@@ -17,10 +30,13 @@ import TUIMessageBox from '../TUILiveKit/common/base/MessageBox';
 import { useI18n } from '../TUILiveKit/locales';
 import logger from '../TUILiveKit/utils/logger';
 import { LoginType } from './Login/types';
+import { TUILiveModeType } from '@/TUILiveKit/types';
 
 const logPrefix = '[LiveKitMain]';
 const liveKitRef = ref();
 const { t } = useI18n();
+
+const liveMode: Ref<TUILiveModeType> = ref(TUILiveModeType.Normal);
 
 const isInited = ref(false);
 
@@ -51,6 +67,10 @@ const handleUserAuthChanged = (userInfo: Record<string, any>) => {
     ...userInfo,
     loginType: LoginType.UserSig
   }));
+};
+
+const handleLiveModeChanged = (mode: TUILiveModeType) => {
+  liveMode.value = mode;
 };
 
 async function init(userInfo: Record<string, any>) {
