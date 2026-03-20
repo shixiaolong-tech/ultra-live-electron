@@ -8,7 +8,7 @@
         <div v-for="item in first200RemoteUserList" :key="item.userId" class="tui-member-item">
           <img class="tui-user-avatar" :src="item.avatarUrl || DEFAULT_USER_AVATAR_URL" alt="">
           <span class="tui-user-name">{{item.userName || item.userId}}</span>
-          <span class="tui-user-level">{{ 0 }}</span>
+          <!-- <span class="tui-user-level">{{ 0 }}</span> -->
         </div>
       </template>
       <div v-else class="tui-no-member">

@@ -110,6 +110,8 @@ export default {
   'Shared screen': '共享屏幕',
   'Go Live': '开始直播',
   'End Live': '结束直播',
+  'Join Live Room': '进入直播间',
+  'Leave Live Room': '离开直播间',
   'Window': '窗口',
   'Screen': '屏幕',
   'Rename': '重命名',

@@ -1,5 +1,5 @@
 <template>
-    <TUILiveKitMain
+    <TUIRobotView
       ref="liveKitRef"
       @on-logout="handleLogout"
       @on-login-failed="handleLoginFailed"
@@ -12,6 +12,7 @@
 import { ref, onMounted, onBeforeUnmount, onBeforeMount } from 'vue';
 import router from '../router';
 import TUILiveKitMain from '../TUILiveKit/MainView.vue';
+import TUIRobotView from '../TUILiveKit/RobotView.vue';
 import TUIMessageBox from '../TUILiveKit/common/base/MessageBox';
 import { useI18n } from '../TUILiveKit/locales';
 import logger from '../TUILiveKit/utils/logger';

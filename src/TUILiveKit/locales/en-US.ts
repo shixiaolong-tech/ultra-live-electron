@@ -110,6 +110,8 @@ export default {
   'Shared screen': 'Shared screen',
   'Go Live': 'Go Live',
   'End Live': 'End Live',
+  'Join Live Room': 'Join Live Room',
+  'Leave Live Room': 'Leave Live Room',
   'Window': 'Window',
   'Screen': 'Screen',
   'Rename': 'Rename',
