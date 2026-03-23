@@ -5,20 +5,36 @@
       @logout="onLogout"
     />
     <div class="tui-live-layout">
-      <div class="tui-layout-left">
-        <LiveMode :modelValue="TUILiveModeType.Normal" @change="handleLiveModeChanged"/>
-        <div class="tui-live-config-container">
-          <live-config @edit-media-source="onEditMediaSource" />
-        </div>
-        <div class="tui-live-more-tool">
-          <live-more-tool />
-        </div>
+      <div :class="['tui-layout-left', { 'tui-layout-left-robot': isRobotMode }]">
+        <LiveMode :modelValue="liveMode" @change="handleLiveModeChanged"/>
+        <!-- Normal mode left panel -->
+        <template v-if="!isRobotMode">
+          <div class="tui-live-config-container">
+            <live-config @edit-media-source="onEditMediaSource" />
+          </div>
+          <div class="tui-live-more-tool">
+            <live-more-tool />
+          </div>
+        </template>
+        <!-- Robot mode left panel -->
+        <template v-else>
+          <input class="tui-input-live-id" v-model="robotLiveId" :placeholder="t('Please enter live room ID')" />
+          <TUILiveButton
+            @click="handleChangeLiveRoomStatus"
+            :class="['tui-btn-live-switch', isInLiveRoom ? 'is-in-live-room' : '']"
+            :disabled="isLiveSwitchDisabled || !userId"
+          >
+            <span :class="[isInLiveRoom ? 'text-in-live-room' : 'text-join-live-room']">
+              {{ liveRoomStatus }}
+            </span>
+          </TUILiveButton>
+        </template>
       </div>
       <div class="tui-layout-middle">
         <div class="tui-live-preview-container">
           <live-preview @edit-media-source="onEditMediaSource" />
         </div>
-        <div class="tui-live-controller-container">
+        <div v-if="!isRobotMode" class="tui-live-controller-container">
           <live-controller
             @on-start-living="startLiving"
             @on-stop-living="stopLiving"
@@ -34,8 +50,8 @@
         </div>
       </div>
       <live-image-source
+        v-if="!isRobotMode && mediaSourceInEdit"
         ref="imageSourceRef"
-        v-if="mediaSourceInEdit"
         v-show="false"
         :data="mediaSourceInEdit"
       ></live-image-source>
@@ -44,13 +60,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, Ref, defineExpose, defineEmits, toRaw, onMounted, onUnmounted, onBeforeUnmount, watch, nextTick } from 'vue';
+import { ref, Ref, defineExpose, defineEmits, computed, toRaw, onMounted, onUnmounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import { storeToRefs } from 'pinia';
 import { TRTCStatistics, TRTCDeviceType, TRTCMediaSourceType, TRTCDeviceState, TRTCVolumeInfo } from 'trtc-electron-sdk';
 import trtcCloud from './utils/trtcCloud';
 import TUIRoomEngine, {
   TUIRoomEvents, TUIRoomType, TUIRequest, TUIRequestAction, TUISeatInfo, TUIUserInfo,
-  TencentCloudChat,
   TUILiveConnectionManagerEvents,
   TUILiveConnectionUser,
   TUILiveBattleManagerEvents,
@@ -61,6 +76,8 @@ import TUIRoomEngine, {
   TUIRoomDismissedReason,
   TUILiveGiftManagerEvents,
   TUIGiftInfo,
+  TUIVideoStreamType,
+  TUIChangeReason,
 } from '@tencentcloud/tuiroom-engine-electron';
 import { TUIConnectionMode, TUILiveModeType, TUIMediaSourceViewModel } from './types';
 import LiveHeader from './components/LiveHeader/Index.vue';
@@ -68,10 +85,12 @@ import LiveMode from './components/LiveMode/Index.vue';
 import LiveConfig from './components/LiveConfig/Index.vue';
 import LiveMoreTool from './components/LiveMoreTool/Index.vue';
 import LivePreview from './components/LivePreview/Index.vue';
+import LivePreviewHeader from './components/LivePreview/PreviewHeader.vue';
 import LiveController from './components/LiveController/Index.vue';
 import LiveMember from './components/LiveMember/Index.vue';
 import LiveMessage from './components/LiveMessage/Index.vue';
 import LiveImageSource from './components/LiveSource/LiveImageSource.vue';
+import TUILiveButton from './common/base/Button.vue';
 import TUIMessageBox from './common/base/MessageBox';
 import { initCommunicationChannels, messageChannels } from './communication';
 import { useBasicStore } from './store/main/basic';
@@ -99,6 +118,9 @@ const roomEngine = useRoomEngine();
 const videoEffectManager = useVideoEffectManager();
 useMediaEventhander();
 
+const liveMode: Ref<TUILiveModeType> = ref(TUILiveModeType.Normal);
+const isRobotMode = computed(() => liveMode.value === TUILiveModeType.Robot);
+
 defineExpose({
   init
 });
@@ -111,7 +133,6 @@ const emit = defineEmits([
   'on-kicked-off-line',
   'on-user-sig-expired',
   'on-user-auth-changed',
-  'on-live-mode-changed',
 ]);
 
 const mediaMixingManager = useMediaMixingManager();
@@ -127,9 +148,17 @@ const { userName, userId, avatarUrl } = storeToRefs(basicStore);
 const { connectionMode } = storeToRefs(roomStore);
 const { microphoneList } = storeToRefs(deviceStore);
 
+// Normal mode specific state
 const mediaSourceInEdit: Ref<TUIMediaSourceViewModel | null> = ref(null);
 const imageSourceRef = ref();
 
+// Robot mode specific state
+const robotLiveId: Ref<string> = ref('');
+const isInLiveRoom: Ref<boolean> = ref(false);
+const isLiveSwitchDisabled: Ref<boolean> = ref(false);
+const liveRoomStatus = computed(() => isInLiveRoom.value ? t('Leave Live Room') : t('Join Live Room'));
+
+// Normal mode: edit media source handler
 const onEditMediaSource = (mediaSource: TUIMediaSourceViewModel) => {
   logger.log(logPrefix, 'onEditMediaSource:', mediaSource);
   let command = '';
@@ -193,7 +222,11 @@ const onLogout = async () => {
 const onBeforeUnload = () => {
   logger.log(`${logPrefix}onBeforeUnload`);
   if (basicStore.isLiving) {
-    stopLiving();
+    if (isRobotMode.value) {
+      leaveLive();
+    } else {
+      stopLiving();
+    }
   }
   audioEffectStore.reset();
   mediaSourcesStore.syncClear();
@@ -212,9 +245,12 @@ onMounted(() => {
 onUnmounted(() => {
   videoEffectManager.clear();
   if (basicStore.isLiving) {
-    stopLiving();
+    if (isRobotMode.value) {
+      leaveLive();
+    } else {
+      stopLiving();
+    }
   }
-  clearLiveRoomInfo();
   window.removeEventListener('beforeunload', onBeforeUnload);
 });
 
@@ -234,9 +270,84 @@ function _generateRoomId() {
   return `live_${Math.floor(Math.random() * 1000 * 1000)}`;
 }
 
-function handleLiveModeChanged(mode: TUILiveModeType) {
-  if (mode !== TUILiveModeType.Normal) {
-    emit('on-live-mode-changed', mode);
+async function handleLiveModeChanged(mode: TUILiveModeType) {
+  if (liveMode.value !== mode) {
+    if (basicStore.isLiving) {
+      if (liveMode.value === TUILiveModeType.Robot) {
+        // If switch from Robot mode to Normal mode while in live room, leave the live room first
+        await leaveLive();
+      } else {
+        // If switch from Normal mode to Robot mode while in live room, stop living first
+        await stopLiving();
+      }
+    }
+    liveMode.value = mode;
+  }
+}
+
+// Robot mode: toggle live room status
+async function handleChangeLiveRoomStatus() {
+  if (isLiveSwitchDisabled.value) {
+    return;
+  }
+  isLiveSwitchDisabled.value = true;
+  await nextTick();
+  if (!isInLiveRoom.value) {
+    await joinLive();
+  } else {
+    await leaveLive();
+  }
+}
+
+// Robot mode: join live room
+async function joinLive() {
+  try {
+    if (robotLiveId.value) {
+      const liveInfo = await roomEngine.instance?.getLiveListManager().joinLive(robotLiveId.value);
+      logger.log(`${logPrefix}joinLive success:`, liveInfo);
+      if (!liveInfo) {
+        logger.error(`${logPrefix}room not found`);
+        return;
+      } else {
+        basicStore.setRoomId(robotLiveId.value);
+        basicStore.setIsLiving(true);
+        isInLiveRoom.value = true;
+        if (liveInfo) {
+          roomStore.setCurrentLive(liveInfo);
+        }
+
+        const loginUserInfo = await TUIRoomEngine.getSelfInfo();
+        roomStore.setLocalUser(loginUserInfo);
+        
+        useMessageHook();
+
+        // trtcCloud.enableAudioVolumeEvaluation(300);
+
+        emit('on-start-living');
+      }
+    }
+  } catch (error) {
+    logger.error(`${logPrefix}joinLive error:`, error);
+  } finally {
+    isLiveSwitchDisabled.value = false;
+  }
+}
+
+// Robot mode: leave live room
+async function leaveLive() {
+  logger.log(`${logPrefix}leaveLive`);
+  try {
+    if (basicStore.isLiving) {
+      await roomEngine.instance?.getLiveListManager().leaveLive();
+      // trtcCloud.stopSystemAudioLoopback();
+    }
+  } catch (error) {
+    logger.error(`${logPrefix}leaveLive error:`, error);
+  } finally {
+    isInLiveRoom.value = false;
+    isLiveSwitchDisabled.value = false;
+    clearLiveRoomInfo();
+    emit('on-stop-living');
   }
 }
 
@@ -261,6 +372,7 @@ async function startLiving() {
       });
 
       basicStore.setRoomId(roomId);
+      const keepOwnerOnSeat = isRobotMode.value ? false : roomStore.currentLive.keepOwnerOnSeat;
       const liveInfo = (await roomEngine.instance?.getLiveListManager().startLive({
         roomId: roomId,
         roomType: TUIRoomType.kLive,
@@ -271,7 +383,7 @@ async function startLiving() {
         isLikeEnabled: roomStore.currentLive.isLikeEnabled,
         isPublicVisible: roomStore.currentLive.isPublicVisible,
         isSeatEnabled: roomStore.currentLive.isSeatEnabled,
-        keepOwnerOnSeat: roomStore.currentLive.keepOwnerOnSeat,
+        keepOwnerOnSeat: keepOwnerOnSeat,
         seatLayoutTemplateId: roomStore.currentLive.seatLayoutTemplateId || 0,
         maxSeatCount: 0,
         seatMode: roomStore.currentLive.seatMode,
@@ -304,8 +416,10 @@ async function startLiving() {
 
       trtcCloud.enableAudioVolumeEvaluation(300);
 
-      trtcCloud.startSystemAudioLoopback();
-      trtcCloud.setSystemAudioLoopbackVolume(100);
+      if (!isRobotMode.value) {
+        trtcCloud.startSystemAudioLoopback();
+        trtcCloud.setSystemAudioLoopbackVolume(100);
+      }
 
       useMessageHook();
       emit('on-start-living');
@@ -330,7 +444,9 @@ async function stopLiving() {
       logger.log(`${logPrefix}stopLiving success:`, liveStatistic);
     }
 
-    trtcCloud.stopSystemAudioLoopback();
+    if (!isRobotMode.value) {
+      trtcCloud.stopSystemAudioLoopback();
+    }
   } catch (error) {
     logger.error(`${logPrefix}stopLiving error:`, error);
     let detail = '';
@@ -457,6 +573,32 @@ function onRemoteUserEnterRoom(eventInfo: { userInfo: TUIUserInfo }) {
 function onRemoteUserLeaveRoom(eventInfo: { userInfo: TUIUserInfo }) {
   roomStore.removeRemoteUser(eventInfo.userInfo.userId);
 }
+
+// // Robot mode: handle remote video state change
+// function onUserVideoStateChanged(eventInfo: { userId: string; streamType: TUIVideoStreamType; hasVideo: boolean; reason: TUIChangeReason; }) {
+//   logger.log(`${logPrefix}onUserVideoStateChanged:`, eventInfo);
+//   const { userId, streamType, hasVideo } = eventInfo;
+//   if (userId === basicStore.userId) {
+//     // do nothing
+//   } else {
+//     if (hasVideo) {
+//       roomEngine.instance?.setRemoteVideoView({
+//         userId,
+//         streamType,
+//         view: 'live-preview-id'
+//       });
+//       roomEngine.instance?.startPlayRemoteVideo({
+//         userId,
+//         streamType,
+//       });
+//     } else {
+//       roomEngine.instance?.stopPlayRemoteVideo({
+//         userId,
+//         streamType,
+//       });
+//     }    
+//   }
+// }
 
 function onRequestReceived(eventInfo: { request: TUIRequest }) {
   const { requestAction, requestId, userId, timestamp } = eventInfo.request;
@@ -936,6 +1078,7 @@ TUIRoomEngine.once('ready', () => {
     roomEngine.instance.on(TUIRoomEvents.onError, onRoomError);
     roomEngine.instance.on(TUIRoomEvents.onRemoteUserEnterRoom, onRemoteUserEnterRoom);
     roomEngine.instance.on(TUIRoomEvents.onRemoteUserLeaveRoom, onRemoteUserLeaveRoom);
+    // roomEngine.instance.on(TUIRoomEvents.onUserVideoStateChanged, onUserVideoStateChanged);
     roomEngine.instance.on(TUIRoomEvents.onRequestReceived, onRequestReceived);
     roomEngine.instance.on(TUIRoomEvents.onRequestCancelled, onRequestCancelled);
     roomEngine.instance.on(TUIRoomEvents.onSeatListChanged, onSeatListChanged);
@@ -996,6 +1139,7 @@ onUnmounted(() => {
     roomEngine.instance.off(TUIRoomEvents.onError, onRoomError);
     roomEngine.instance.off(TUIRoomEvents.onRemoteUserEnterRoom, onRemoteUserEnterRoom);
     roomEngine.instance.off(TUIRoomEvents.onRemoteUserLeaveRoom, onRemoteUserLeaveRoom);
+    // roomEngine.instance.off(TUIRoomEvents.onUserVideoStateChanged, onUserVideoStateChanged);
     roomEngine.instance.off(TUIRoomEvents.onRequestReceived, onRequestReceived);
     roomEngine.instance.off(TUIRoomEvents.onRequestCancelled, onRequestCancelled);
     roomEngine.instance.off(TUIRoomEvents.onSeatListChanged, onSeatListChanged);
@@ -1061,7 +1205,7 @@ function onStatistics(statis: TRTCStatistics) {
   basicStore.setStatistics(statis);
 }
 function onUserVoiceVolume(userVolumes: TRTCVolumeInfo, userVolumesCount: number, totalVolume: number) {
-  logger.debug(`${logPrefix}onUserVoiceVolume: userVolumesCount:${userVolumesCount}, totalVolume:${totalVolume},  userVolumes:`, userVolumes);
+  // logger.debug(`${logPrefix}onUserVoiceVolume: userVolumesCount:${userVolumesCount}, totalVolume:${totalVolume},  userVolumes:`, userVolumes);
 }
 
 onMounted(() => {
@@ -1117,6 +1261,55 @@ onBeforeUnmount(() => {
     background-color: var(--bg-color-topbar);
   }
 
+  .tui-layout-left-robot {
+    background-color: var(--bg-color-operate);
+    padding: 1rem;
+    gap: 0.5rem;
+
+    .tui-input-live-id {
+      padding: 0.5rem;
+      border: 1px solid var(--border-color-default);
+      border-radius: 0.25rem;
+      background-color: var(--bg-color-input);
+      color: var(--text-color-primary);
+      font-size: 0.875rem;
+      outline: none;
+    }
+
+    .tui-btn-live-switch {
+      width: 100%;
+      height: 2.5rem;
+      font-size: 0.875rem;
+      line-height: 2.5rem;
+      display: flex;
+      border-radius: 3rem;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--button-color-primary-default);
+      background-color: var(--bg-color-transparency);
+      color: var(--button-color-primary-default);
+      cursor: pointer;
+
+      .text-join-live-room {
+        color: var(--button-color-primary-default);
+      }
+
+      .text-in-live-room {
+        color: var(--text-color-error);
+      }
+
+      &.is-in-live-room {
+        border: 1px solid var(--text-color-error);
+        background-color: var(--bg-color-transparency);
+      }
+
+      &:disabled {
+        cursor: not-allowed;
+        opacity: 0.3;
+      }
+    }
+  }
+
   .tui-layout-middle {
     flex: 1 1 auto;
     display: flex;
@@ -1142,6 +1335,11 @@ onBeforeUnmount(() => {
     height: calc(100% - 4rem);
     background-color: var(--bg-color-operate);
     color: var(--text-color-primary);
+
+    .tui-live-preview {
+      width: 100%;
+      height: 100%;
+    }
   }
 
   .tui-live-controller-container {
