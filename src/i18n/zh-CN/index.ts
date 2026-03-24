@@ -220,4 +220,6 @@ export const resource = {
   'Failed to add camera': '添加摄像头失败。请确保摄像头已连接且已授予摄像头权限。',
   'Failed to add screen share': '添加屏幕共享失败。请确保窗口非最小化或隐藏，且已授予屏幕捕获权限。',
   'Network Error': '网络异常',
+  'No screen capture permission. Please grant permission and restart the app.': '当前没有屏幕分享权限，请授权后重启应用',
+  'Go to Settings': '前往设置',
 };

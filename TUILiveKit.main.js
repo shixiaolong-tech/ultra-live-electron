@@ -794,6 +794,24 @@ function bindIPCEvent() {
     postMessageToWindow(windowMap.confirm, 'port-to-confirm', null, [port]);
   });
 
+  // ============== Screen Capture Permission Check (macOS) ==============
+  ipcMain.handle('check-screen-capture-permission', () => {
+    if (process.platform === 'darwin') {
+      const status = systemPreferences.getMediaAccessStatus('screen');
+      console.log(`${logPrefix}check-screen-capture-permission: ${status}`);
+      return status; // 'granted' | 'denied' | 'restricted' | 'not-determined'
+    }
+    return 'granted'; // Non-macOS platforms always return granted
+  });
+
+  ipcMain.on('open-screen-capture-privacy-setting', () => {
+    if (process.platform === 'darwin') {
+      console.log(`${logPrefix}open-screen-capture-privacy-setting`);
+      // Open macOS System Preferences -> Privacy & Security -> Screen Recording
+      shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture');
+    }
+  });
+
   ipcMain.on('set-language', (event, args) => {
     console.log(`${logPrefix}set-language`, args);
     language = args;
@@ -949,6 +967,8 @@ function bindIPCEvent() {
 function unbindIPCMainEvent() {
   ipcMain.removeHandler('app-path');
   ipcMain.removeHandler('window-type');
+  ipcMain.removeHandler('check-screen-capture-permission');
+  ipcMain.removeAllListeners('open-screen-capture-privacy-setting');
   ipcMain.removeAllListeners('window-message'); // V2 IPC message router
   ipcMain.removeAllListeners('on-minimize-window');
   ipcMain.removeAllListeners('on-maximize-window');

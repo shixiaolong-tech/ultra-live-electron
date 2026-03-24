@@ -416,11 +416,92 @@ const handleAppRequestQuit = () => {
   });
 };
 
+/**
+ * Intercept "Add Screen Share" button click via document capture phase.
+ * The LiveScenePanel component comes from a third-party library and cannot be
+ * modified at source level. We detect the click target by checking:
+ * 1. The element (or its parent) has class "add-material-item"
+ * 2. The text content contains "Add Screen Share" or "添加屏幕共享"
+ * If matched, check macOS screen capture permission before allowing the click through.
+ */
+const SCREEN_SHARE_TEXTS = ['Add Screen Share', '添加屏幕共享'];
+
+function isScreenShareButton(target: HTMLElement): boolean {
+  let el: HTMLElement | null = target;
+  // Walk up at most 3 levels to find .add-material-item container
+  for (let i = 0; i < 4 && el; i++) {
+    if (el.classList?.contains('add-material-item')) {
+      const text = el.textContent?.trim() || '';
+      return SCREEN_SHARE_TEXTS.some(keyword => text.includes(keyword));
+    }
+    el = el.parentElement;
+  }
+  return false;
+}
+
+async function handleDocumentClickCapture(event: MouseEvent) {
+  if (process.platform !== 'darwin') {
+    return;
+  }
+  const target = event.target as HTMLElement;
+  if (!target || !isScreenShareButton(target)) {
+    return;
+  }
+
+  // Block the original click from reaching the third-party component
+  event.stopPropagation();
+  event.preventDefault();
+
+  try {
+    const status = await window.ipcRenderer.invoke('check-screen-capture-permission');
+    if (status !== 'granted') {
+      TUIMessageBox.confirm({
+        title: t('Note'),
+        content: t('No screen capture permission. Please grant permission and restart the app.'),
+        confirmText: t('Go to Settings'),
+        cancelText: t('Cancel'),
+        callback: (action?: string) => {
+          if (action === 'confirm') {
+            window.ipcRenderer.send('open-screen-capture-privacy-setting');
+          }
+        },
+      });
+      return;
+    }
+  } catch (err) {
+    console.warn('check screen capture permission failed', err);
+  }
+
+  // Permission granted: re-dispatch the click so the original handler fires
+  const cloneEvent = new MouseEvent('click', {
+    bubbles: event.bubbles,
+    cancelable: event.cancelable,
+    view: event.view,
+    clientX: event.clientX,
+    clientY: event.clientY,
+  });
+  // Mark the re-dispatched event so we don't intercept it again
+  (cloneEvent as any).__screenSharePermissionChecked = true;
+  target.dispatchEvent(cloneEvent);
+}
+
+function handleDocumentClickCaptureWrapper(event: MouseEvent) {
+  // Skip re-dispatched events that already passed permission check
+  if ((event as any).__screenSharePermissionChecked) {
+    return;
+  }
+  handleDocumentClickCapture(event);
+}
+
 onMounted(async () => {
   // Setup event listeners
   setupEventListeners();
   if (window.ipcRenderer) {
     window.ipcRenderer.on('app-request-quit', handleAppRequestQuit);
+  }
+  // Register screen capture permission interceptor (capture phase)
+  if (process.platform === 'darwin') {
+    document.addEventListener('click', handleDocumentClickCaptureWrapper, true);
   }
 
   // Read user info from localStorage
@@ -518,6 +599,10 @@ onBeforeUnmount(() => {
   cleanupEventListeners();
   if (window.ipcRenderer) {
     window.ipcRenderer.off('app-request-quit', handleAppRequestQuit);
+  }
+  // Remove screen capture permission interceptor
+  if (process.platform === 'darwin') {
+    document.removeEventListener('click', handleDocumentClickCaptureWrapper, true);
   }
 });
 

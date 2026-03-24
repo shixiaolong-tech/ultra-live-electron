@@ -185,4 +185,6 @@ export const resource = {
   'Failed to add camera': 'Failed to add camera. Make sure the camera is connected and the camera permission is granted.',
   'Failed to add screen share': 'Failed to add screen share. Make sure the window is not minimized or hidden, and screen capture permission is granted.',
   'Network Error': 'Network Error',
+  'No screen capture permission. Please grant permission and restart the app.': 'No screen capture permission. Please grant permission and restart the app.',
+  'Go to Settings': 'Go to Settings',
 };
