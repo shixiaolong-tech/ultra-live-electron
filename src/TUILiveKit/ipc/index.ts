@@ -26,6 +26,11 @@ export {
   MusicPanelSnapshot,
   MusicActionPayload,
   MusicEventPayload,
+  BattleStateSnapshot,
+  CoHostPanelSnapshot,
+  CoHostActionPayload,
+  CoHostEventPayload,
+  BeautyUpdatePayload,
   LiveSettingActionType,
   ApplyLiveSettingPayload,
   LiveTitleSettingInitialData,
@@ -35,8 +40,11 @@ export {
   ConfirmDialogActionPayload,
   ShowConfirmDialogPayload,
   CloseConfirmDialogPayload,
+  EndLiveAction,
   MainProcessAction,
 } from './types';
+
+export { EndLiveActionValue } from './types';
 
 // Export IPCBridge class and singleton instance
 export { IPCBridge, ipcBridge } from './IPCBridge';

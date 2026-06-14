@@ -60,6 +60,8 @@ import MoreIcon from './icons/MoreIcon.vue';
 import CameraIcon from './icons/CameraIcon.vue';
 import VideoIcon from './icons/VideoIcon.vue';
 import vClickOutside from '../../utils/vClickOutside';
+import useVideoEffectManager from '../../utils/useVideoEffectManager';
+import { deleteBeautyProperties } from '../../utils/beautyPropertiesStore';
 
 const { t } = useUIKit();
 
@@ -92,6 +94,7 @@ type SceneMenuSyncDetail = {
 const SCENE_MENU_SYNC_EVENT = 'live-scene-panel:menu-sync';
 
 const { updateMediaSource, removeMediaSource, activeMediaSource } = useVideoMixerState();
+const videoEffectManager = useVideoEffectManager();
 
 const getMaterialKey = (source: Partial<MediaSource> | null | undefined) => `${source?.sourceType ?? ''}::${source?.sourceId ?? ''}`;
 const isMaterialActive = computed(() => getMaterialKey(activeMediaSource.value) === getMaterialKey(props.material));
@@ -247,6 +250,25 @@ const getMaterialControls = (mediaSourceType: TRTCMediaSourceType) => {
 
 const handleDeleteMaterial = async (material: MediaSource) => {
   try {
+    // For camera sources, tear down the beauty/video-effect plugin BEFORE
+    // removing the media source. The plugin is keyed by the camera deviceId
+    // (== sourceId) and lives in a module-level singleton, so stopping it here
+    // releases the native BeautyPlugin (emits "[I]BeautyPlugin: destroyed").
+    // Without this, removing the camera leaves the plugin running on a device
+    // that is no longer in the mixer.
+    if (material.sourceType === TRTCMediaSourceType.kCamera && material.sourceId != null) {
+      const cameraId = String(material.sourceId);
+      try {
+        videoEffectManager.stopEffect(cameraId);
+      } catch (effectError) {
+        // Non-fatal: a camera may never have had a beauty plugin attached.
+        console.warn('[LiveScenePanel] stopEffect before remove failed:', effectError, material);
+      }
+      // Drop the cached beauty properties so that re-adding the same deviceId
+      // later starts from a clean state instead of resurrecting the previous
+      // camera's effects (and auto-enabling the corresponding group switches).
+      deleteBeautyProperties(cameraId);
+    }
     await removeMediaSource(material);
   } catch (error) {
     console.error('[LiveScenePanel] removeMediaSource failed:', error, material);

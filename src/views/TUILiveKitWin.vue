@@ -1,8 +1,8 @@
 <template>
   <UIKitProvider theme="dark">
-    <div class="tui-livekit-main" :class="{ 'is-logout-transitioning': isGoingToLoginPage }">
+    <div class="tui-livekit-win" :class="{ 'is-logout-transitioning': isGoingToLoginPage }">
       <LiveHeader @logout="handleLogout" :is-showing-in-child-window="true"/>
-      <div class="tui-livekit-main">
+      <div class="live-pusher-main">
         <div class="main-left">
           <div class="main-left-top">
             <div class="main-left-top-title card-title">
@@ -35,6 +35,7 @@
               class="main-left-bottom-tools"
             >
               <CoGuestButton :isShowingInChildWindow="true" />
+              <CoHostButton :isShowingInChildWindow="true" />
               <MusicButton :isShowingInChildWindow="true" />
             </div>
           </div>
@@ -143,6 +144,7 @@
             </div>
           </div>
         </div>
+        <LivePusherNotification />
       </div>
     </div>
   </UIKitProvider>
@@ -172,6 +174,10 @@ import {
   useLiveAudienceState,
   useDeviceState,
   useCoGuestState,
+  useCoHostState,
+  useBattleState,
+  useLiveSeatState,
+  CoHostStatus,
   StreamMixer,
   LiveListEvent,
   LiveEndedReason,
@@ -179,14 +185,17 @@ import {
 } from 'tuikit-atomicx-vue3-electron';
 import { useElectronLogin, type ForceLogoutNoticePayload } from '../TUILiveKit/hooks/useElectronLogin';
 import LiveHeader from '../TUILiveKit/components/LiveHeader/index.vue';
-import LiveScenePanel from '../TUILiveKit/components/LiveScene/LiveScenePanel.vue';
+import LiveScenePanel from '../TUILiveKit/components/LiveScenePanel/index.vue';
 import LiveSettingButton from '../TUILiveKit/components/LiveSettingButton.vue';
 import LiveURLCopy from '../TUILiveKit/components/LiveURLCopy.vue';
 import CoGuestButton from '../TUILiveKit/components/CoGuestButton.vue';
+import CoHostButton from '../TUILiveKit/components/CoHostButton.vue';
+import LivePusherNotification from '../TUILiveKit/components/LivePusherNotification.vue';
 import {
   isNetworkOffline,
   isNetworkTimeoutError,
   isSvgCoverUrl,
+  throttle,
 } from '../TUILiveKit/utils/utils';
 import { getWindowID } from '../TUILiveKit/utils/envUtils';
 import { TUIButtonAction, TUIButtonActionType } from '../TUILiveKit/types';
@@ -197,6 +206,8 @@ import {
   ApplyLiveTitlePayload,
   ChildPanelType,
   WindowType,
+  BattleStateSnapshot,
+  EndLiveActionValue,
 } from '../TUILiveKit/ipc';
 import MicVolumeSetting from '../TUILiveKit/components/MicVolumeSetting.vue';
 import SpeakerVolumeSetting from '../TUILiveKit/components/SpeakerVolumeSetting.vue';
@@ -230,11 +241,25 @@ const { currentLive, startLive, endLive, joinLive, subscribeEvent, unsubscribeEv
 const { audienceCount } = useLiveAudienceState();
 const { openLocalMicrophone } = useDeviceState();
 const { connected: coGuestConnected } = useCoGuestState();
+const { connected: coHostConnected, coHostStatus, exitHostConnection } = useCoHostState();
+const { currentBattleInfo, battleUsers, battleScore, exitBattle } = useBattleState();
+const { seatList } = useLiveSeatState();
 const roomEngine = useRoomEngine();
 const isInLive = computed(() => !!currentLive.value?.liveId);
 const isGoingToLoginPage = ref(false);
 const isTransitioningToLogin = () => isGoingToLoginPage.value;
+// Dialog message follows the same 4-tier priority as the Web LivePusherView
+// (PK > CoHost > CoGuest > default), so the host always sees the most
+// specific state they're currently in. The end-live confirm dialog actions
+// (assembled in `showEndLiveDialog`) follow the same priority — see the
+// `actions` array there.
 const endLiveDialogMessage = computed(() => {
+  if (currentBattleInfo.value?.battleId) {
+    return t('Currently in PK state, do you need to "end PK" or "end live broadcast"');
+  }
+  if (coHostStatus.value === CoHostStatus.Connected) {
+    return t('Currently connected, do you need to "exit connection" or "end live broadcast"');
+  }
   if (coGuestConnected.value.length > 1) {
     return t('You are currently co-guesting with other streamers. Would you like to [End Live] ?');
   }
@@ -361,10 +386,21 @@ const showEndLiveConfirmWindow = () => {
   }
 
   const dialogId = `end-live-${Date.now()}`;
+  // Action ordering mirrors the Web LivePusherView dialog footer:
+  //   [Cancel, End live, (End battle | Exit connection)?]
+  // The third action is contextual — only present when the host is in
+  // PK (highest priority) or co-host. This matches the gating in
+  // `endLiveDialogMessage` above so the dialog content and the visible
+  // actions stay consistent.
   const actions: Array<TUIButtonAction> = [
-    { text: t('Cancel'), value: 'cancel', type: TUIButtonActionType.Normal },
-    { text: t('End live'), value: 'end-live', type: TUIButtonActionType.Dangerous },
+    { text: t('Cancel'), value: EndLiveActionValue.Cancel, type: TUIButtonActionType.Normal },
+    { text: t('End live'), value: EndLiveActionValue.EndLive, type: TUIButtonActionType.Dangerous },
   ];
+  if (currentBattleInfo.value?.battleId) {
+    actions.push({ text: t('End battle'), value: EndLiveActionValue.EndBattle, type: TUIButtonActionType.Dangerous });
+  } else if (coHostStatus.value === CoHostStatus.Connected) {
+    actions.push({ text: t('Exit connection'), value: EndLiveActionValue.ExitConnection, type: TUIButtonActionType.Dangerous });
+  }
 
   ipcBridge.sendToConfirm(IPCMessageType.SHOW_CONFIRM_DIALOG, {
     scene: 'end-live',
@@ -464,7 +500,33 @@ const onConfirmDialogAction = async (payload: ConfirmDialogActionPayload) => {
       scene: payload.scene,
       dialogId: payload.dialogId,
     });
-    if (payload.action !== 'end-live') {
+    // Route the contextual third button back to the appropriate SDK call.
+    // Mirrors `LivePusherView.handleEndBattle` / `handleExitConnection`
+    // on the Web side. We swallow exitBattle / exitHostConnection errors
+    // here (just log to console) because there's no toast surface above
+    // this IPC handler — the user has already dismissed the dialog and
+    // an error would otherwise be silently re-thrown into the void.
+    if (payload.action === EndLiveActionValue.EndBattle) {
+      if (currentBattleInfo.value?.battleId) {
+        try {
+          await exitBattle({ battleId: currentBattleInfo.value.battleId });
+        } catch (error) {
+          console.error('[TUILiveKitWin] exitBattle from end-live dialog failed', error);
+        }
+      }
+      return;
+    }
+    if (payload.action === EndLiveActionValue.ExitConnection) {
+      if (coHostStatus.value === CoHostStatus.Connected) {
+        try {
+          await exitHostConnection();
+        } catch (error) {
+          console.error('[TUILiveKitWin] exitHostConnection from end-live dialog failed', error);
+        }
+      }
+      return;
+    }
+    if (payload.action !== EndLiveActionValue.EndLive) {
       return;
     }
     if (!loading.value) {
@@ -657,6 +719,51 @@ watch(
   { immediate: true }
 );
 
+// Aggregate the slice of battle / seat / co-host state that the cover window
+// needs to render the PK overlay (score bar, countdown, start animation,
+// per-seat ranking badge). The cover owns no atomicx state, so the main
+// window pushes a fully-derived snapshot whenever any input ref changes.
+const battleStateSnapshot = computed<BattleStateSnapshot>(() => ({
+  battleId: currentBattleInfo.value?.battleId || '',
+  battleDuration: currentBattleInfo.value?.config?.duration || 0,
+  startTime: currentBattleInfo.value?.startTime || 0,
+  battleUsers: (battleUsers.value || []).map(user => ({
+    userId: user.userId,
+    userName: user.userName,
+    avatarUrl: user.avatarUrl,
+  })),
+  // Map cannot be structured-cloned safely across IPC; serialize to plain entries.
+  battleScore: Array.from(
+    (battleScore.value || new Map<string, number>()).entries(),
+  ) as Array<[string, number]>,
+  layoutTemplate: currentLive.value?.layoutTemplate ?? 0,
+  connectedSeatCount: (seatList.value || []).filter(seat => seat.userInfo).length,
+  connectedHostCount: (coHostConnected.value || []).length,
+}));
+
+// IPC throttle: during an active PK, `battleScore` updates can fire once per
+// second from the SDK, and any concurrent seat join / layout switch causes
+// `battleStateSnapshot` to recompute again. Without throttling we'd push a
+// fresh structured-clone payload to the cover process on every flush, which
+// then fans out to multiple Vue reactivity patches (score bar transition,
+// per-seat badge re-render, countdown re-render) inside the cover window.
+//
+// `throttle(..., { leading: true, trailing: true })` semantics:
+//   - The first change after a quiet period is sent IMMEDIATELY so PK
+//     start (battleId 0 -> id) and layout switches feel instant.
+//   - Subsequent changes within the throttle window are coalesced; only
+//     the latest snapshot is sent when the timer fires.
+const BATTLE_STATE_SYNC_THROTTLE_MS = 200;
+const sendBattleStateToCover = throttle((snapshot: BattleStateSnapshot) => {
+  ipcBridge.sendToCover(IPCMessageType.SYNC_BATTLE_STATE, snapshot);
+}, BATTLE_STATE_SYNC_THROTTLE_MS);
+
+watch(
+  battleStateSnapshot,
+  (snapshot) => sendBattleStateToCover(snapshot),
+  { immediate: true },
+);
+
 const onUserOnSeatInfoChanged = (userOnSeatInfos: Array<Record<string, any>>) => {
   console.log('[TUILiveKitWin] onUserOnSeatInfoChanged:', userOnSeatInfos);
   ipcBridge.sendToCover(IPCMessageType.UPDATE_USER_ON_SEAT, userOnSeatInfos);
@@ -802,6 +909,9 @@ onBeforeUnmount(() => {
     });
     currentForceLogoutDialogId.value = '';
   }
+  // Drop any pending throttled SYNC_BATTLE_STATE push so we don't fire
+  // after the main window has already torn down its IPC bridge.
+  sendBattleStateToCover.cancel();
   cleanupEventListeners();
   ipcBridge.off(IPCMessageType.CONFIRM_DIALOG_ACTION, onConfirmDialogAction);
   ipcBridge.off(IPCMessageType.APPLY_LIVE_TITLE, onApplyLiveTitle);
@@ -814,7 +924,7 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 @import "../TUILiveKit/assets/mac.scss";
 
-.tui-livekit-main {
+.tui-livekit-win {
   width: 100%;
   height: 100%;
   display: flex;
@@ -841,14 +951,13 @@ onBeforeUnmount(() => {
     pointer-events: none;
   }
 
-  .tui-livekit-main {
+  .live-pusher-main {
     width: 100%;
     height: calc(100% - 44px);
     display: flex;
     flex-direction: row;
     user-select: none;
     padding: 0 12px 12px 12px;
-    border-radius: 8px;
     background-color: var(--bg-color-topbar);
     @include scrollbar;
 

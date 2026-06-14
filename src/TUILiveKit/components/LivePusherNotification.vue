@@ -7,11 +7,13 @@ import { onMounted, onUnmounted, watch } from 'vue';
 import { TOAST_TYPE, TUIToast, useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import {
   useLiveListState, useCoHostState, CoHostEvent, SeatUserInfo, useLiveSeatState,
-  useBattleState, CoHostStatus, useCoGuestState, BattleEvent,
+  useBattleState, CoHostStatus, useCoGuestState, BattleEvent, useLoginState,
 } from 'tuikit-atomicx-vue3-electron';
 
 import { showNotification, hideNotification } from '../base-component/Notification';
+import { BATTLE_REQUEST_TIMEOUT_SECONDS } from './CoHostPanel/constants';
 
+const { loginUserInfo } = useLoginState();
 const { currentLive } = useLiveListState();
 const {
   applicant,
@@ -25,7 +27,7 @@ const {
 } = useCoHostState();
 const { applicants: coGuestApplicants, rejectApplication } = useCoGuestState();
 const { seatList } = useLiveSeatState();
-const { subscribeEvent: subscribeBattleEvent, unsubscribeEvent: unsubscribeBattleEvent } = useBattleState();
+const { acceptBattle, rejectBattle, subscribeEvent: subscribeBattleEvent, unsubscribeEvent: unsubscribeBattleEvent } = useBattleState();
 
 const { t } = useUIKit();
 
@@ -49,7 +51,42 @@ watch(() => coGuestApplicants.value.length, () => {
 });
 
 const handleCoHostRequestReceived = async ({ inviter, extensionInfo }: { inviter: SeatUserInfo, extensionInfo: string }) => {
-  return undefined;
+  if(coGuestApplicants.value.length > 0) {
+    rejectHostConnection({
+      liveId: inviter.liveId,
+    });
+    return;
+  }
+  const hasMoreSeatUser = seatList.value.filter((item) => item.userInfo?.userId).length > 1;
+  const allSeatUserInCoGuest = seatList.value.filter((item) => item.userInfo?.liveId !== currentLive.value?.liveId).length === 0;
+  if (hasMoreSeatUser && allSeatUserInCoGuest) {
+    await rejectHostConnection({
+      liveId: inviter.liveId,
+    });
+    return;
+  }
+  const extensionInfoObj = safeJsonParse(extensionInfo);
+  const isBattle = extensionInfoObj.withBattle;
+  showNotification({
+    cancelText: t('Reject'),
+    message: isBattle? t('Received battle invitation from userName', { userName: inviter.userName || inviter.userId }) : t('Co-host request received from user', { userName: inviter.userName || inviter.userId }),
+    duration: extensionInfoObj.timeout,
+    onAccept: () => {
+      acceptHostConnection({
+        liveId: inviter.liveId,
+      });
+      hideNotification();
+    },
+    onCancel: () => {
+      rejectHostConnection({
+        liveId: inviter.liveId,
+      });
+      hideNotification();
+    },
+    onTimeout: () => {
+      hideNotification();
+    },
+  });
 };
 
 const handleCoHostUserLeft = ({ userInfo }: { userInfo: SeatUserInfo }) => {
@@ -61,18 +98,55 @@ const handleCoHostRequestCancelled = ({ inviter }: { inviter: SeatUserInfo }) =>
   hideNotification();
   TUIToast({ type: TOAST_TYPE.INFO, message: t('Co-host request cancelled by user', { userName: inviter.userName || inviter.userId }) });
 }
+
+const handleCoHostRequestRejected = ({ invitee }: { invitee: SeatUserInfo }) => {
+  TUIToast({ type: TOAST_TYPE.INFO, message: t('Invitation rejected by user', { userName: invitee.userName || invitee.userId }) });
+};
+
+const handleCoHostRequestTimeout = ({ inviter, invitee }: { inviter: SeatUserInfo; invitee: SeatUserInfo }) => {
+  if (inviter.userId === loginUserInfo.value?.userId) {
+    TUIToast({ type: TOAST_TYPE.INFO, message: t('Invitation timeout for user', { userName: invitee.userName || invitee.userId }) });
+  }
+};
+
 const handleUserExitBattle = () => {
   return undefined;
 };
-const onBattleRequestReceived = () => {
-  // Electron pusher does not support anchor battle yet.
-  // Keep silent and let the requester side timeout naturally.
-  return undefined;
+
+const onBattleRequestReceived = (eventInfo: { battleId: string, inviter: SeatUserInfo, invitee: SeatUserInfo }) => {
+  hideNotification();
+  showNotification({
+    cancelText: t('Reject'),
+    message: t('Received battle invitation from userName', { userName: eventInfo.inviter.userName || eventInfo.inviter.userId}),
+    duration: BATTLE_REQUEST_TIMEOUT_SECONDS,
+    onAccept: () => {
+      acceptBattle({
+        battleId: eventInfo.battleId,
+      });
+      hideNotification();
+    },
+    onCancel: () => {
+      rejectBattle({
+        battleId: eventInfo.battleId,
+      });
+      hideNotification();
+    },
+    onTimeout: () => {
+      hideNotification();
+    },
+  });
 };
 const onBattleRequestCancelled = (eventInfo: { battleId: string, inviter: SeatUserInfo, invitee: SeatUserInfo }) => {
   TUIToast({ type: TOAST_TYPE.INFO, message: t('Battle request cancelled by user', { userName: eventInfo.invitee.userName || eventInfo.invitee.userId}) });
   hideNotification();
 };
+
+const onBattleRequestRejected = (eventInfo: { battleId: string, inviter: SeatUserInfo, invitee: SeatUserInfo }) => {
+  if (eventInfo.inviter.userId === loginUserInfo.value?.userId) {
+    TUIToast({ type: TOAST_TYPE.INFO, message: t('Battle request rejected by user', { userName: eventInfo.invitee.userName || eventInfo.invitee.userId }) });
+  }
+};
+
 let timeoutUsers: string[] = [];
 let timeoutTimer: number | null = null;
 
@@ -104,20 +178,26 @@ const onBattleRequestTimeout = (eventInfo: { battleId: string, inviter: SeatUser
 onMounted(() => {
   subscribeCoHostEvent(CoHostEvent.onCoHostRequestReceived, handleCoHostRequestReceived);
   subscribeCoHostEvent(CoHostEvent.onCoHostRequestCancelled, handleCoHostRequestCancelled);
+  subscribeCoHostEvent(CoHostEvent.onCoHostRequestRejected, handleCoHostRequestRejected);
+  subscribeCoHostEvent(CoHostEvent.onCoHostRequestTimeout, handleCoHostRequestTimeout);
   subscribeCoHostEvent(CoHostEvent.onCoHostUserLeft, handleCoHostUserLeft);
   subscribeBattleEvent(BattleEvent.onUserExitBattle, handleUserExitBattle);
   subscribeBattleEvent(BattleEvent.onBattleRequestReceived, onBattleRequestReceived);
   subscribeBattleEvent(BattleEvent.onBattleRequestCancelled, onBattleRequestCancelled);
+  subscribeBattleEvent(BattleEvent.onBattleRequestReject, onBattleRequestRejected);
   subscribeBattleEvent(BattleEvent.onBattleRequestTimeout, onBattleRequestTimeout);
 });
 
 onUnmounted(() => {
   unsubscribeCoHostEvent(CoHostEvent.onCoHostRequestReceived, handleCoHostRequestReceived);
   unsubscribeCoHostEvent(CoHostEvent.onCoHostRequestCancelled, handleCoHostRequestCancelled);
+  unsubscribeCoHostEvent(CoHostEvent.onCoHostRequestRejected, handleCoHostRequestRejected);
+  unsubscribeCoHostEvent(CoHostEvent.onCoHostRequestTimeout, handleCoHostRequestTimeout);
   unsubscribeCoHostEvent(CoHostEvent.onCoHostUserLeft, handleCoHostUserLeft);
   unsubscribeBattleEvent(BattleEvent.onUserExitBattle, handleUserExitBattle);
   unsubscribeBattleEvent(BattleEvent.onBattleRequestReceived, onBattleRequestReceived);
   unsubscribeBattleEvent(BattleEvent.onBattleRequestCancelled, onBattleRequestCancelled);
+  unsubscribeBattleEvent(BattleEvent.onBattleRequestReject, onBattleRequestRejected);
   unsubscribeBattleEvent(BattleEvent.onBattleRequestTimeout, onBattleRequestTimeout);
 });
 </script>

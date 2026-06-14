@@ -149,16 +149,16 @@ class TUIVideoEffectManager {
         return;
       }
     }
-    setTimeout(()=> {
-      // Get from Map to avoid the plugin has been removed
-      let pluginAdded = this.beautyPluginMap.get(cameraId) || null;
-      if (pluginAdded) {
-        pluginAdded.setParameter(JSON.stringify({
-          beautySetting: beautyConfig.beautyProperties
-        }));
-        pluginAdded = null;
-      }
-    }, 3000); // Wait 3 seconds to make sure C++ plugin created
+    // Apply immediately. The native plugin caches beautySetting received before
+    // its xmagic instance finishes creating (CacheOrUpdateBeautySetting →
+    // HandleCachedBeautySetting on CreateXmagic), so no client-side delay is
+    // needed. A previous 3s setTimeout here captured a (possibly stale) full
+    // snapshot and, once incremental updateEffect() calls were introduced, could
+    // fire late and overwrite a newer delta — applying synchronously keeps the
+    // native apply order strictly FIFO and correct.
+    plugin.setParameter(JSON.stringify({
+      beautySetting: beautyConfig.beautyProperties,
+    }));
   }
 
   stopEffect(cameraId: string) {
@@ -196,6 +196,11 @@ class TUIVideoEffectManager {
     } else {
       logger.error(`${this.logPrefix}updateEffect failed. No effect plugin for camera:`, cameraId);
     }
+  }
+
+  /** Whether a beauty plugin has already been created for this camera. */
+  hasPlugin(cameraId: string): boolean {
+    return this.beautyPluginMap.has(cameraId);
   }
 
   clear() {

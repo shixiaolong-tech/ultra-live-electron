@@ -206,12 +206,12 @@ function getDefaultPanelSize(panelType) {
     ? windowMap.main.getSize()
     : [1200, 800];
   const sizeMap = {
-    'Camera':              { width: 600, height: 400 },
+    'Camera':              { width: 680, height: 600 },
     'Screen':              { width: mainW - 150, height: mainH - 80 },
     'Image':               { width: 600, height: 500 },
     'Rename':              { width: 480, height: 176 },
     'CoGuestConnection':   { width: 520, height: 560 },
-    'CoHostConnection':    { width: 520, height: 560 },
+    'CoHostConnection':    { width: 520, height: 640 },
     'Setting':             { width: 600, height: 560 },
     'AddBgm':              { width: 600, height: 560 },
     'ReverbVoice':         { width: 600, height: 560 },

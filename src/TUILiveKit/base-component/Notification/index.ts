@@ -1,10 +1,13 @@
 import { createVNode, render } from 'vue'
 import type { VNode } from 'vue'
 import Notification from './Notification.vue'
+import { NOTIFICATION_CONTAINER_ID } from './constants'
 import type { NotificationOptions } from './types'
 
 export type { NotificationOptions }
-export const NOTIFICATION_CONTAINER_ID = 'notification-container'
+// Re-export from leaf module to keep the public API unchanged.
+// See `./constants.ts` for the rationale (cross-chunk TDZ prevention).
+export { NOTIFICATION_CONTAINER_ID }
 let notificationContainer: HTMLDivElement | null = null
 let currentNotificationApp: VNode | null = null
 

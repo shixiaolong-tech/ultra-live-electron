@@ -35,6 +35,7 @@
               class="main-left-bottom-tools"
             >
               <CoGuestButton />
+              <CoHostButton />
               <MusicButton />
             </div>
           </div>
@@ -155,6 +156,22 @@
               >
                 {{ t('End live') }}
               </TUIButton>
+              <TUIButton
+                v-if="currentBattleInfo?.battleId"
+                type="primary"
+                color="red"
+                @click="handleEndBattle"
+              >
+                {{ t('End battle') }}
+              </TUIButton>
+              <TUIButton
+                v-else-if="coHostStatus === CoHostStatus.Connected"
+                type="primary"
+                color="red"
+                @click="handleExitConnection"
+              >
+                {{ t('Exit connection') }}
+              </TUIButton>
             </div>
           </template>
         </TUIDialog>
@@ -185,6 +202,9 @@ import {
   useLiveListState,
   useDeviceState,
   useCoGuestState,
+  useCoHostState,
+  useBattleState,
+  CoHostStatus,
   LiveScenePanel,
   StreamMixer,
   LiveAudienceList,
@@ -197,8 +217,8 @@ import {
 } from 'tuikit-atomicx-vue3-electron';
 import TUIRoomEngine, { TUISeatMode } from '@tencentcloud/tuiroom-engine-electron';
 import { useElectronLogin } from '../TUILiveKit/hooks/useElectronLogin';
-
 import CoGuestButton from '../TUILiveKit/components/CoGuestButton.vue';
+import CoHostButton from '../TUILiveKit/components/CoHostButton.vue';
 import LayoutSwitch from '../TUILiveKit/components/LayoutSwitch.vue';
 import MusicButton from '../TUILiveKit/components/MusicButton.vue';
 import MicVolumeSetting from '../TUILiveKit/components/MicVolumeSetting.vue';
@@ -236,6 +256,8 @@ const { handleErrorWithModal } = useLiveErrorModal();
 const { audienceCount } = useLiveAudienceState();
 const { openLocalMicrophone } = useDeviceState();
 const { connected: coGuestConnected } = useCoGuestState();
+const { coHostStatus, exitHostConnection } = useCoHostState();
+const { currentBattleInfo, exitBattle } = useBattleState();
 const roomEngine = useRoomEngine();
 const isInLive = computed(() => !!currentLive.value?.liveId);
 const loading = ref(false);
@@ -279,6 +301,33 @@ const showEndLiveDialog = async () => {
   exitLiveDialogVisible.value = true;
 };
 
+// "End battle" branch in the end-live confirmation dialog
+const handleEndBattle = async () => {
+  if (!currentBattleInfo.value?.battleId) {
+    exitLiveDialogVisible.value = false;
+    return;
+  }
+  exitLiveDialogVisible.value = false;
+  try {
+    await exitBattle({ battleId: currentBattleInfo.value.battleId });
+  } catch (error) {
+    console.error('[TUILiveKitMac] exitBattle from end-live dialog failed', error);
+  }
+};
+
+// "Exit connection" branch in the end-live confirmation dialog
+const handleExitConnection = async () => {
+  if (coHostStatus.value === CoHostStatus.Disconnected) {
+    exitLiveDialogVisible.value = false;
+    return;
+  }
+  exitLiveDialogVisible.value = false;
+  try {
+    await exitHostConnection();
+  } catch (error) {
+    console.error('[TUILiveKitMac] exitHostConnection from end-live dialog failed', error);
+  }
+};
 
 // Setup useElectronLogin Hook
 const {
@@ -309,7 +358,17 @@ function redirectToLogin() {
   router.replace({ name: 'login' });
 }
 
+// Dialog message follows the same 4-tier priority as the Web LivePusherView
+// (PK > CoHost > CoGuest > default), so the host always sees the most
+// specific state they're currently in. Mirrors web-vite-vue3's
+// `LivePusherView.vue:259-270`.
 const endLiveDialogMessage = computed(() => {
+  if (currentBattleInfo.value?.battleId) {
+    return t('Currently in PK state, do you need to "end PK" or "end live broadcast"');
+  }
+  if (coHostStatus.value === CoHostStatus.Connected) {
+    return t('Currently connected, do you need to "exit connection" or "end live broadcast"');
+  }
   if (coGuestConnected.value.length > 1) {
     return t('You are currently co-guesting with other streamers. Would you like to [End Live] ?');
   }

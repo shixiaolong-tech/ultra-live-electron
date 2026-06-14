@@ -3,6 +3,19 @@
     <template v-for="region in userSeatStreamRegions" :key="region.userId">
       <StreamCover v-if="region.userId !== liveOwner" :region="region" :mode="connectionMode"/>
     </template>
+    <!--
+      PK overlay layers — Windows-only feature parity with the Mac
+      LiveCoreDecorate. Both layers are pointer-event transparent and live in
+      the cover window so they continue rendering when the main window's
+      stream area is blanked by native rendering. Data flows in via
+      IPCMessageType.SYNC_BATTLE_STATE; see coverBattleState.ts.
+    -->
+    <CoverBattleUserDecorate :seatRegions="userSeatStreamRegions" />
+    <CoverBattleDecorate
+      :seatRegions="userSeatStreamRegions"
+      :liveOwnerUserId="liveOwner"
+      :liveId="liveId"
+    />
   </div>
 </template>
 
@@ -10,6 +23,8 @@
 import { ref, onMounted, onUnmounted, onBeforeUnmount } from 'vue';
 import type { Ref } from 'vue';
 import StreamCover from './components/LiveCoverView/StreamCover.vue';
+import CoverBattleDecorate from './components/LiveCoverView/CoverBattleDecorate.vue';
+import CoverBattleUserDecorate from './components/LiveCoverView/CoverBattleUserDecorate.vue';
 import { TUIConnectionMode, TUIUserSeatStreamRegion } from './types';
 import { ipcBridge } from './ipc/IPCBridge';
 import { IPCMessageType } from './ipc/types';
