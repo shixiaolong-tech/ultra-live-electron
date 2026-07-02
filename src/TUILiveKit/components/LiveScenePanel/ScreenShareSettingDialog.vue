@@ -217,7 +217,6 @@ const handleClose = () => {
     display: flex;
     flex-direction: column;
     padding: 10px 0;
-    max-height: 600px;
     overflow: hidden;
   }
 }
@@ -228,7 +227,6 @@ const handleClose = () => {
   flex-direction: column;
   gap: 24px;
   overflow-y: auto;
-  max-height: 500px;
   padding: 8px 0;
   scrollbar-width: none;
 

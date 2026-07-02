@@ -211,7 +211,7 @@ function getDefaultPanelSize(panelType) {
     'Image':               { width: 600, height: 500 },
     'Rename':              { width: 480, height: 176 },
     'CoGuestConnection':   { width: 520, height: 560 },
-    'CoHostConnection':    { width: 520, height: 560 },
+    'CoHostConnection':    { width: 520, height: 640 },
     'Setting':             { width: 600, height: 560 },
     'AddBgm':              { width: 600, height: 560 },
     'ReverbVoice':         { width: 600, height: 560 },
@@ -1156,6 +1156,15 @@ function bindCoverWindowEvent() {
   });
 
   windowMap.mainCover?.on('focus', () => {
+    // When only the cover (an owned child window of main) is activated after the
+    // app was in background, Windows raises the cover above other apps but leaves
+    // the owner (main) behind, so a third-party window can slip between cover (top)
+    // and main (bottom). Re-raise the owner: moving main to top carries its owned
+    // windows (cover/child) up with it, closing the gap. moveTop only reorders
+    // z-order and does NOT steal focus, so the cover stays interactive.
+    if (isWindowAlive(windowMap.main)) {
+      windowMap.main.moveTop();
+    }
     if (lastChildWindowCommand !== '') {
       if (isWindowAlive(windowMap.child)) {
         windowMap.child.show();

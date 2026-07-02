@@ -53,6 +53,70 @@ export const debounce = <F extends (...args: any[]) => void>(
   return debounced as (...args: Parameters<F>) => ReturnType<F>;
 };
 
+/**
+ * A throttled function returned by {@link throttle}. Calling it forwards the
+ * arguments according to the throttle policy; calling `.cancel()` drops any
+ * queued trailing invocation and resets internal state (useful from
+ * `onBeforeUnmount` hooks).
+ */
+export interface ThrottledFunction<F extends (...args: any[]) => void> {
+  (...args: Parameters<F>): void;
+  cancel: () => void;
+}
+
+/**
+ * Returns a throttled version of `func` with leading + trailing semantics.
+ *
+ * - **Leading edge**: the first call after a quiet period of `>= waitFor` ms
+ *   invokes `func` synchronously, so user-perceptible latency is minimized
+ *   (e.g. PK start / layout switch should not be delayed by the throttle).
+ * - **Trailing edge**: subsequent calls within the throttle window are
+ *   coalesced; only the LAST set of arguments seen during the window is
+ *   invoked once when the timer fires, ensuring final-state consistency.
+ *
+ * Matches lodash `throttle(func, wait, { leading: true, trailing: true })`
+ * semantics without pulling in lodash. Pair with
+ * `throttledFn.cancel()` in `onBeforeUnmount` to drop pending calls.
+ */
+export const throttle = <F extends (...args: any[]) => void>(
+  func: F,
+  waitFor: number
+): ThrottledFunction<F> => {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  let pendingArgs: Parameters<F> | null = null;
+
+  const throttled = ((...args: Parameters<F>) => {
+    pendingArgs = args;
+    if (timeout !== null) {
+      // Inside throttle window: only remember the latest args, do not invoke.
+      return;
+    }
+    // Leading edge: invoke immediately with the freshest args.
+    func(...pendingArgs);
+    pendingArgs = null;
+    // Arm trailing-edge timer; if more calls come in before it fires, the
+    // last set of args will be flushed.
+    timeout = setTimeout(() => {
+      timeout = null;
+      if (pendingArgs) {
+        const trailingArgs = pendingArgs;
+        pendingArgs = null;
+        func(...trailingArgs);
+      }
+    }, waitFor);
+  }) as ThrottledFunction<F>;
+
+  throttled.cancel = () => {
+    if (timeout !== null) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
+    pendingArgs = null;
+  };
+
+  return throttled;
+};
+
 export async function copyToClipboard(text: string): Promise<void> {
   await navigator.clipboard.writeText(text);
 }

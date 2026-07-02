@@ -1,8 +1,8 @@
 <template>
   <UIKitProvider theme="dark">
-    <div class="tui-livekit-main" :class="{ 'is-logout-transitioning': isGoingToLoginPage }">
+    <div class="tui-livekit-win" :class="{ 'is-logout-transitioning': isGoingToLoginPage }">
       <LiveHeader @logout="handleLogout" :is-showing-in-child-window="true"/>
-      <div class="tui-livekit-main">
+      <div class="live-pusher-main">
         <div class="main-left">
           <div class="main-left-top">
             <div class="main-left-top-title card-title">
@@ -31,10 +31,11 @@
               </div>
             </div>
             <div
-              v-if="isToolsExpanded"
+              v-show="isToolsExpanded"
               class="main-left-bottom-tools"
             >
               <CoGuestButton :isShowingInChildWindow="true" />
+              <CoHostButton :isShowingInChildWindow="true" />
               <MusicButton :isShowingInChildWindow="true" />
             </div>
           </div>
@@ -143,6 +144,7 @@
             </div>
           </div>
         </div>
+        <LivePusherNotification />
       </div>
     </div>
   </UIKitProvider>
@@ -172,10 +174,15 @@ import {
   useLiveAudienceState,
   useDeviceState,
   useCoGuestState,
+  useCoHostState,
+  useBattleState,
+  useLiveSeatState,
+  CoHostStatus,
   StreamMixer,
   LiveListEvent,
   LiveEndedReason,
   LiveListEventInfo,
+  BattleEvent,
 } from 'tuikit-atomicx-vue3-electron';
 import { useElectronLogin, type ForceLogoutNoticePayload } from '../TUILiveKit/hooks/useElectronLogin';
 import LiveHeader from '../TUILiveKit/components/LiveHeader/index.vue';
@@ -183,10 +190,13 @@ import LiveScenePanel from '../TUILiveKit/components/LiveScene/LiveScenePanel.vu
 import LiveSettingButton from '../TUILiveKit/components/LiveSettingButton.vue';
 import LiveURLCopy from '../TUILiveKit/components/LiveURLCopy.vue';
 import CoGuestButton from '../TUILiveKit/components/CoGuestButton.vue';
+import CoHostButton from '../TUILiveKit/components/CoHostButton.vue';
+import LivePusherNotification from '../TUILiveKit/components/LivePusherNotification.vue';
 import {
   isNetworkOffline,
   isNetworkTimeoutError,
   isSvgCoverUrl,
+  throttle,
 } from '../TUILiveKit/utils/utils';
 import { getWindowID } from '../TUILiveKit/utils/envUtils';
 import { TUIButtonAction, TUIButtonActionType } from '../TUILiveKit/types';
@@ -197,6 +207,8 @@ import {
   ApplyLiveTitlePayload,
   ChildPanelType,
   WindowType,
+  BattleStateSnapshot,
+  EndLiveActionValue,
 } from '../TUILiveKit/ipc';
 import MicVolumeSetting from '../TUILiveKit/components/MicVolumeSetting.vue';
 import SpeakerVolumeSetting from '../TUILiveKit/components/SpeakerVolumeSetting.vue';
@@ -230,11 +242,32 @@ const { currentLive, startLive, endLive, joinLive, subscribeEvent, unsubscribeEv
 const { audienceCount } = useLiveAudienceState();
 const { openLocalMicrophone } = useDeviceState();
 const { connected: coGuestConnected } = useCoGuestState();
+const { connected: coHostConnected, coHostStatus, exitHostConnection } = useCoHostState();
+const {
+  currentBattleInfo,
+  battleUsers,
+  battleScore,
+  subscribeEvent: subscribeBattleEvent,
+  unsubscribeEvent: unsubscribeBattleEvent,
+} = useBattleState();
+const { seatList } = useLiveSeatState();
 const roomEngine = useRoomEngine();
 const isInLive = computed(() => !!currentLive.value?.liveId);
 const isGoingToLoginPage = ref(false);
 const isTransitioningToLogin = () => isGoingToLoginPage.value;
+// Dialog message follows the same priority as the Web LivePusherView
+// (PK > CoHost > CoGuest > default). While in PK the host can only end the
+// whole live (ending the battle alone is no longer offered), so the PK
+// branch shows a dedicated PK exit confirmation. The end-live
+// confirm dialog actions (assembled in `showEndLiveDialog`) follow the same
+// priority — see the `actions` array there.
 const endLiveDialogMessage = computed(() => {
+  if (currentBattleInfo.value?.battleId) {
+    return t('You are currently live streaming and in a PK battle. Are you sure you want to exit?');
+  }
+  if (coHostStatus.value === CoHostStatus.Connected) {
+    return t('Currently connected, do you need to "exit connection" or "end live broadcast"');
+  }
   if (coGuestConnected.value.length > 1) {
     return t('You are currently co-guesting with other streamers. Would you like to [End Live] ?');
   }
@@ -275,6 +308,7 @@ const currentAppQuitDialogId = ref('');
 const currentAppQuitNeedsEndLive = ref(false);
 const isAppQuitHandling = ref(false);
 const currentForceLogoutDialogId = ref('');
+const currentLogoutDialogId = ref('');
 const {
   startSystemAudioLoopbackSafely,
   stopSystemAudioLoopbackSafely,
@@ -361,10 +395,20 @@ const showEndLiveConfirmWindow = () => {
   }
 
   const dialogId = `end-live-${Date.now()}`;
+  // Action ordering mirrors the Web LivePusherView dialog footer:
+  //   [Cancel, End live, Exit connection?]
+  // The third action ("Exit connection") only appears when the host is
+  // co-hosting but NOT in PK. During PK no third action is offered: a host
+  // in PK can only end the whole live, not exit the PK alone. This matches
+  // the gating in `endLiveDialogMessage` above so the dialog content and the
+  // visible actions stay consistent.
   const actions: Array<TUIButtonAction> = [
-    { text: t('Cancel'), value: 'cancel', type: TUIButtonActionType.Normal },
-    { text: t('End live'), value: 'end-live', type: TUIButtonActionType.Dangerous },
+    { text: t('Cancel'), value: EndLiveActionValue.Cancel, type: TUIButtonActionType.Normal },
+    { text: t('End live'), value: EndLiveActionValue.EndLive, type: TUIButtonActionType.Dangerous },
   ];
+  if (!currentBattleInfo.value?.battleId && coHostStatus.value === CoHostStatus.Connected) {
+    actions.push({ text: t('Exit connection'), value: EndLiveActionValue.ExitConnection, type: TUIButtonActionType.Dangerous });
+  }
 
   ipcBridge.sendToConfirm(IPCMessageType.SHOW_CONFIRM_DIALOG, {
     scene: 'end-live',
@@ -444,8 +488,47 @@ const showForceLogoutConfirmWindow = (payload: ForceLogoutNoticePayload) => {
   });
 };
 
+/**
+ * Active logout confirm: shown when the host clicks "Logout" while still
+ * live streaming. Reuses the independent confirm BrowserWindow (same as
+ * end-live / app-quit) since the Win main window renders via native C++ and
+ * cannot host an in-window TUIMessageBox reliably.
+ */
+const showLogoutConfirmWindow = () => {
+  if (isTransitioningToLogin() || currentLogoutDialogId.value) {
+    return;
+  }
+  const dialogId = `logout-${Date.now()}`;
+  currentLogoutDialogId.value = dialogId;
+  const actions: Array<TUIButtonAction> = [
+    { text: t('Cancel'), value: 'cancel', type: TUIButtonActionType.Normal },
+    { text: t('Logout'), value: 'logout-confirm', type: TUIButtonActionType.Dangerous },
+  ];
+  ipcBridge.sendToConfirm(IPCMessageType.SHOW_CONFIRM_DIALOG, {
+    scene: 'logout',
+    dialogId,
+    title: t('Logout'),
+    content: t('You are currently live streaming. Logging out will automatically end the live stream. Are you sure you want to log out?'),
+    actions,
+  });
+};
+
 const onConfirmDialogAction = async (payload: ConfirmDialogActionPayload) => {
   if (!payload?.scene) {
+    return;
+  }
+
+  if (payload.scene === 'logout') {
+    const dialogId = payload.dialogId || currentLogoutDialogId.value || undefined;
+    ipcBridge.sendToConfirm(IPCMessageType.CLOSE_CONFIRM_DIALOG, {
+      scene: payload.scene,
+      dialogId,
+    });
+    currentLogoutDialogId.value = '';
+    // Only the explicit "Logout" action proceeds; closing / cancel is a no-op.
+    if (payload.action === 'logout-confirm') {
+      await performLogout();
+    }
     return;
   }
 
@@ -464,7 +547,24 @@ const onConfirmDialogAction = async (payload: ConfirmDialogActionPayload) => {
       scene: payload.scene,
       dialogId: payload.dialogId,
     });
-    if (payload.action !== 'end-live') {
+    // Route the contextual third button back to the appropriate SDK call.
+    // Mirrors `LivePusherView.handleExitConnection` on the Web side. We
+    // swallow exitHostConnection errors here (just log to console) because
+    // there's no toast surface above this IPC handler — the user has already
+    // dismissed the dialog and an error would otherwise be silently
+    // re-thrown into the void. Ending the PK alone is no longer offered, so
+    // there is no `EndBattle` action to route here.
+    if (payload.action === EndLiveActionValue.ExitConnection) {
+      if (coHostStatus.value === CoHostStatus.Connected) {
+        try {
+          await exitHostConnection();
+        } catch (error) {
+          console.error('[TUILiveKitWin] exitHostConnection from end-live dialog failed', error);
+        }
+      }
+      return;
+    }
+    if (payload.action !== EndLiveActionValue.EndLive) {
       return;
     }
     if (!loading.value) {
@@ -621,16 +721,28 @@ const {
   forceLogoutMode: 'immediate',
 });
 
-// Handle logout with live status check
-const handleLogout = async () => {
+// Perform the actual logout. On failure fall back to the local logout
+// redirect so the user is never stuck on the pusher view.
+const performLogout = async () => {
   try {
-    if (isTransitioningToLogin()) {
-      return;
-    }
     await handleElectronLogout();
   } catch (error) {
     onLoggedOut();
   }
+};
+
+// Handle logout with live status check
+const handleLogout = async () => {
+  if (isTransitioningToLogin()) {
+    return;
+  }
+  // When still live streaming, ask the host to confirm first: logging out
+  // will automatically end the ongoing live stream.
+  if (isInLive.value) {
+    showLogoutConfirmWindow();
+    return;
+  }
+  await performLogout();
 };
 
 function redirectToLogin() {
@@ -641,6 +753,13 @@ function redirectToLogin() {
       dialogId: currentForceLogoutDialogId.value,
     });
     currentForceLogoutDialogId.value = '';
+  }
+  if (currentLogoutDialogId.value) {
+    ipcBridge.sendToConfirm(IPCMessageType.CLOSE_CONFIRM_DIALOG, {
+      scene: 'logout',
+      dialogId: currentLogoutDialogId.value,
+    });
+    currentLogoutDialogId.value = '';
   }
   window.localStorage.removeItem(USER_INFO_STORAGE_KEY);
   router.replace({ name: 'login' });
@@ -655,6 +774,76 @@ watch(
     });
   },
   { immediate: true }
+);
+
+// Whether the most recent battle teardown was a "normal" end, i.e. the SDK
+// fired `BattleEvent.onBattleEnded` (countdown timed out, or the battle was
+// stopped because the remaining members dropped to <= 1). This is the ONLY
+// case in which the cover window should play the PK result animation.
+//
+// Why a dedicated flag: in a 3+ host PK, when THIS host actively quits, the
+// state layer only fires `onUserExitBattle` + `reset()` and never fires
+// `onBattleEnded` (see BattleState.ts). Both paths clear `currentBattleInfo`
+// identically, so the cover cannot tell them apart from `battleId` alone. We
+// latch this flag on `onBattleEnded` and ship it inside the snapshot so the
+// cover animates only on a genuine end, matching the Mac / Web kits whose
+// `BattleDecorate` likewise animate solely on `onBattleEnded`.
+//
+// The flag is reset on every `onBattleStarted` (next PK round). A stale `true`
+// lingering between battles is harmless because the cover reads it only at the
+// instant `battleId` transitions from non-empty to empty.
+const battleEndedNormally = ref(false);
+const handleBattleEndedForCover = () => {
+  battleEndedNormally.value = true;
+};
+const handleBattleStartedForCover = () => {
+  battleEndedNormally.value = false;
+};
+
+// Aggregate the slice of battle / seat / co-host state that the cover window
+// needs to render the PK overlay (score bar, countdown, start animation,
+// per-seat ranking badge). The cover owns no atomicx state, so the main
+// window pushes a fully-derived snapshot whenever any input ref changes.
+const battleStateSnapshot = computed<BattleStateSnapshot>(() => ({
+  battleId: currentBattleInfo.value?.battleId || '',
+  battleDuration: currentBattleInfo.value?.config?.duration || 0,
+  startTime: currentBattleInfo.value?.startTime || 0,
+  battleUsers: (battleUsers.value || []).map(user => ({
+    userId: user.userId,
+    userName: user.userName,
+    avatarUrl: user.avatarUrl,
+  })),
+  // Map cannot be structured-cloned safely across IPC; serialize to plain entries.
+  battleScore: Array.from(
+    (battleScore.value || new Map<string, number>()).entries(),
+  ) as Array<[string, number]>,
+  layoutTemplate: currentLive.value?.layoutTemplate ?? 0,
+  connectedSeatCount: (seatList.value || []).filter(seat => seat.userInfo).length,
+  connectedHostCount: (coHostConnected.value || []).length,
+  battleEndedNormally: battleEndedNormally.value,
+}));
+
+// IPC throttle: during an active PK, `battleScore` updates can fire once per
+// second from the SDK, and any concurrent seat join / layout switch causes
+// `battleStateSnapshot` to recompute again. Without throttling we'd push a
+// fresh structured-clone payload to the cover process on every flush, which
+// then fans out to multiple Vue reactivity patches (score bar transition,
+// per-seat badge re-render, countdown re-render) inside the cover window.
+//
+// `throttle(..., { leading: true, trailing: true })` semantics:
+//   - The first change after a quiet period is sent IMMEDIATELY so PK
+//     start (battleId 0 -> id) and layout switches feel instant.
+//   - Subsequent changes within the throttle window are coalesced; only
+//     the latest snapshot is sent when the timer fires.
+const BATTLE_STATE_SYNC_THROTTLE_MS = 200;
+const sendBattleStateToCover = throttle((snapshot: BattleStateSnapshot) => {
+  ipcBridge.sendToCover(IPCMessageType.SYNC_BATTLE_STATE, snapshot);
+}, BATTLE_STATE_SYNC_THROTTLE_MS);
+
+watch(
+  battleStateSnapshot,
+  (snapshot) => sendBattleStateToCover(snapshot),
+  { immediate: true },
 );
 
 const onUserOnSeatInfoChanged = (userOnSeatInfos: Array<Record<string, any>>) => {
@@ -697,6 +886,11 @@ const handleLiveEnded = (eventInfo: LiveListEventInfo) => {
 onMounted(async () => {
   // Subscribe to live ended event
   subscribeEvent(LiveListEvent.onLiveEnded, handleLiveEnded);
+
+  // Track genuine battle end vs. active-exit so the cover plays the result
+  // animation only on a real `onBattleEnded` (see `battleEndedNormally`).
+  subscribeBattleEvent(BattleEvent.onBattleStarted, handleBattleStartedForCover);
+  subscribeBattleEvent(BattleEvent.onBattleEnded, handleBattleEndedForCover);
 
   // Setup event listeners
   setupEventListeners();
@@ -789,6 +983,8 @@ const handleLiveSettingConfirm = async (form: { liveName: string; coverUrl?: str
 
 onBeforeUnmount(() => {
   unsubscribeEvent(LiveListEvent.onLiveEnded, handleLiveEnded);
+  unsubscribeBattleEvent(BattleEvent.onBattleStarted, handleBattleStartedForCover);
+  unsubscribeBattleEvent(BattleEvent.onBattleEnded, handleBattleEndedForCover);
   if (loginRedirectTimer) {
     clearTimeout(loginRedirectTimer);
     loginRedirectTimer = null;
@@ -802,6 +998,16 @@ onBeforeUnmount(() => {
     });
     currentForceLogoutDialogId.value = '';
   }
+  if (currentLogoutDialogId.value) {
+    ipcBridge.sendToConfirm(IPCMessageType.CLOSE_CONFIRM_DIALOG, {
+      scene: 'logout',
+      dialogId: currentLogoutDialogId.value,
+    });
+    currentLogoutDialogId.value = '';
+  }
+  // Drop any pending throttled SYNC_BATTLE_STATE push so we don't fire
+  // after the main window has already torn down its IPC bridge.
+  sendBattleStateToCover.cancel();
   cleanupEventListeners();
   ipcBridge.off(IPCMessageType.CONFIRM_DIALOG_ACTION, onConfirmDialogAction);
   ipcBridge.off(IPCMessageType.APPLY_LIVE_TITLE, onApplyLiveTitle);
@@ -814,7 +1020,7 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 @import "../TUILiveKit/assets/mac.scss";
 
-.tui-livekit-main {
+.tui-livekit-win {
   width: 100%;
   height: 100%;
   display: flex;
@@ -841,14 +1047,13 @@ onBeforeUnmount(() => {
     pointer-events: none;
   }
 
-  .tui-livekit-main {
+  .live-pusher-main {
     width: 100%;
     height: calc(100% - 44px);
     display: flex;
     flex-direction: row;
     user-select: none;
     padding: 0 12px 12px 12px;
-    border-radius: 8px;
     background-color: var(--bg-color-topbar);
     @include scrollbar;
 
@@ -918,7 +1123,7 @@ onBeforeUnmount(() => {
               }
 
               &.collapsed {
-                transform: rotate(-90deg);
+                transform: rotate(180deg);
               }
             }
           }
@@ -1125,6 +1330,19 @@ onBeforeUnmount(() => {
           user-select: text;
         }
       }
+    }
+  }
+
+  .loading-icon {
+    animation: rotate 1s linear infinite;
+  }
+
+  @keyframes rotate {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
     }
   }
 

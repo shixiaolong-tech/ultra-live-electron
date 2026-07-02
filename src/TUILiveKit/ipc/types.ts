@@ -2,7 +2,12 @@
  * IPC Message Types and Interfaces
  * This module defines all message types for inter-window communication
  */
-import { MusicPlayStatus } from 'tuikit-atomicx-vue3-electron';
+import {
+  CoHostLayoutTemplate,
+  CoHostStatus,
+  MusicPlayStatus,
+  SeatUserInfo,
+} from 'tuikit-atomicx-vue3-electron';
 
 /**
  * Window type enumeration
@@ -32,12 +37,20 @@ export enum IPCMessageType {
   UPDATE_LAYOUT_TEMPLATE = 'updateLayoutTemplate',
   UPDATE_USER_PROFILE = 'updateUserProfile',
   SYNC_LIVE_INFO = 'syncLiveInfo',
+  /** Main -> Cover: aggregated battle / co-host snapshot for cover-window PK UI */
+  SYNC_BATTLE_STATE = 'syncBattleState',
 
   // ============== Music Panel Related ==============
   /** Child -> Main: user action dispatched from MusicPanelDialog */
   MUSIC_ACTION = 'musicAction',
   /** Main -> Child: music event passthrough (e.g. onPlayError) */
   MUSIC_EVENT = 'musicEvent',
+
+  // ============== CoHost / Battle Panel Related ==============
+  /** Child -> Main: user action dispatched from CoHostPanelDialog (cohost / battle / config) */
+  COHOST_ACTION = 'cohostAction',
+  /** Main -> Child: cohost / battle event passthrough (toast lifecycle, etc.) */
+  COHOST_EVENT = 'cohostEvent',
 
   // ============== Media Source Related ==============
   /** Add a new media source */
@@ -408,6 +421,215 @@ export type MusicEventPayload =
   | { event: 'onPlayError'; url: string; code: number };
 
 
+/**
+ * Battle / CoHost state snapshot pushed from the main window to the cover window.
+ *
+ * The cover window owns no atomicx state of its own; therefore the main window
+ * aggregates the minimal slice of `useBattleState` / `useLiveSeatState` /
+ * `useCoHostState` / `useLiveListState` that the cover-side PK UI needs and
+ * forwards it via IPC. All gating logic in the cover (showPkBar /
+ * showBattleUserDecorate / victory-defeat-draw computation) is derived purely
+ * from this snapshot.
+ *
+ * Maps cannot survive structured-clone safely across IPC, so `battleScore` is
+ * serialized as a plain `[userId, score][]` array — mirroring how
+ * `CoHostPanelSnapshot.battleScore` is already handled.
+ */
+export interface BattleStateSnapshot {
+  /** Current battleId, empty string when no battle is in progress. */
+  battleId: string;
+  /** Battle duration in seconds, mirrors currentBattleInfo.config.duration. */
+  battleDuration: number;
+  /** Battle start timestamp in seconds (epoch), mirrors currentBattleInfo.startTime. */
+  startTime: number;
+  /** Slim copy of users currently in this battle (only fields the cover renders). */
+  battleUsers: Array<{
+    userId: string;
+    userName?: string;
+    avatarUrl?: string;
+  }>;
+  /** Battle score map serialized as a plain array of [userId, score] pairs. */
+  battleScore: Array<[string, number]>;
+  /** layoutTemplate of currentLive, used to gate showPkBar / showBattleUserDecorate. */
+  layoutTemplate: number;
+  /**
+   * Number of seats whose userInfo is non-null, mirrors
+   * `seatList?.filter(seat => seat.userInfo).length`. Used by `showPkBar`.
+   */
+  connectedSeatCount: number;
+  /**
+   * Number of co-hosts in `useCoHostState().connected`. Used by
+   * `showBattleUserDecorate` (`> 2` triggers per-seat badge / score overlay).
+   */
+  connectedHostCount: number;
+  /**
+   * Whether the most recent battle teardown was a genuine `onBattleEnded`
+   * (countdown timeout, or remaining members dropped to <= 1), as opposed to
+   * a 3+ host PK where this host actively quits (which fires only
+   * `onUserExitBattle`). The cover window plays the PK result animation only
+   * when this is `true`, matching the Mac / Web kits.
+   */
+  battleEndedNormally: boolean;
+}
+
+
+/**
+ * CoHost / Battle panel state snapshot pushed from main window to child window.
+ * Used as both SHOW_CHILD_PANEL initialData and UPDATE_CHILD_DATA incremental payload.
+ *
+ * Mirrors the read-only flow already adopted for MusicPanelSnapshot: the child
+ * window owns no real CoHost / Battle state — every reactive ref consumed by
+ * the panel is sourced from this snapshot which is rebuilt on the main window
+ * whenever any underlying state changes.
+ */
+export interface CoHostPanelSnapshot {
+  /** Slim copy of useLoginState().loginUserInfo (only fields the panel reads). */
+  loginUserInfo: {
+    userId: string;
+    userName?: string;
+    avatarUrl?: string;
+  } | null;
+  /** Slim copy of useLiveListState().currentLive (only fields the panel reads). */
+  currentLive: {
+    liveId: string;
+    liveName?: string;
+    coverUrl?: string;
+    /** Current live layout template (used to derive LiveOrientation). */
+    layoutTemplate?: number;
+  } | null;
+
+  // ============== useCoHostState ==============
+  /** Aggregated co-host status (Connected / Disconnected). */
+  coHostStatus: CoHostStatus;
+  /** Recommended host candidates from the latest fetch page. */
+  candidates: SeatUserInfo[];
+  /** Pagination cursor for getCoHostCandidates. Empty string means "no more". */
+  candidatesCursor: string;
+  /** Hosts currently invited but not yet accepted. */
+  invitees: SeatUserInfo[];
+  /** Hosts currently in the connected list (includes self when connected). */
+  connected: SeatUserInfo[];
+  /** Inbound co-host applicant info (the user who sent us a request). */
+  applicant: SeatUserInfo | null;
+  /**
+   * List of liveIds for which we have muted the remote host audio.
+   * Owned by the main window so the toggle survives child window reopen.
+   */
+  mutedHostLiveIds: string[];
+
+  // ============== useBattleState ==============
+  /** Current battleId, empty string when no battle is active. */
+  battleId: string;
+  /** Users currently in the battle. */
+  battleUsers: SeatUserInfo[];
+  /** Battle score map serialized as a plain array of [userId, score] pairs. */
+  battleScore: Array<[string, number]>;
+  /**
+   * Pending outbound battle requests keyed by inviteeUserId. Used by the
+   * "Cancel battle" button to render correctly after a re-open.
+   */
+  pendingBattleRequestUserIds: string[];
+  /** BattleId of the request currently in flight (empty when none). */
+  pendingBattleRequestId: string;
+  /**
+   * Outbound co-host invitations that have been "Sent" but not yet finalized
+   * (accepted/rejected/cancelled/timed out). Used by the BattlePanel "Invite battle"
+   * vs "Cancel invitation" toggle and the with-battle path on the main window.
+   */
+  pendingPkInviteeUserIds: string[];
+
+  // ============== Invite mutual-exclusion (PK vs connection) ==============
+  /**
+   * True while at least one "Invite battle" (PK) invitation is still pending.
+   * Derived on the main window from `pendingPkInviteeUserIds`. When true the
+   * child window disables all "Invite connection" buttons so the two invite
+   * kinds stay mutually exclusive (more PK invites may still be sent).
+   */
+  hasPendingBattleInvite: boolean;
+  /**
+   * True while at least one "Invite connection" invitation is still pending.
+   * Derived on the main window from the outbound co-host request set. When true
+   * the child window disables all "Invite battle" buttons so the two invite
+   * kinds stay mutually exclusive (more connection invites may still be sent).
+   */
+  hasPendingConnectionInvite: boolean;
+  /**
+   * True while a Battle-tab-initiated PK is still auto-starting on the main
+   * window: i.e. any battle invite is still pending, any accepter is parked
+   * waiting to connect, the connection-ready safety timer is armed, or the
+   * aggregated `requestBattle` is in flight (covers the gap between the co-host
+   * connection being established and `onBattleStarted`). When true the child
+   * window disables its "Start battle" button so the user cannot fire a
+   * duplicate `requestBattle` for the same round. Does NOT block sending more
+   * battle invites — multiple hosts may be invited and all accepters join.
+   */
+  hasPendingBattleAutoStart: boolean;
+
+  // ============== ConfigSettingPanel form ==============
+  /** Battle settings form, owned by main window for cross-reopen persistence. */
+  configForm: {
+    battleDuration: number;
+    coHostLayoutTemplate: CoHostLayoutTemplate;
+  };
+}
+
+/**
+ * User intents dispatched from CoHostPanelDialog (child window) back to
+ * CoHostButton (main window) via IPCMessageType.COHOST_ACTION.
+ *
+ * Discriminated union mirrors MusicActionPayload, keeping all CoHost/Battle
+ * intents under a single message type with strongly-typed payloads.
+ */
+export type CoHostActionPayload =
+  // —— Candidate pagination ——
+  | { action: 'getCandidates'; cursor: string }
+  // —— Co-host (connection) ——
+  | {
+      action: 'requestConnection';
+      liveId: string;
+      userId: string;
+      userName?: string;
+      withBattle: boolean;
+      timeoutSec: number;
+    }
+  | { action: 'cancelConnection'; liveId: string; userId: string }
+  | { action: 'acceptConnection' }
+  | { action: 'rejectConnection' }
+  | { action: 'exitConnection' }
+  | { action: 'muteRemoteHostAudio'; liveId: string; mute: boolean }
+  // —— Battle (PK) ——
+  | {
+      action: 'requestBattle';
+      userIdList: string[];
+      battleDuration: number;
+      timeoutSec: number;
+    }
+  | { action: 'cancelBattleRequest' }
+  // —— ConfigSettingPanel form ——
+  | {
+      action: 'setConfigForm';
+      battleDuration: number;
+      coHostLayoutTemplate: CoHostLayoutTemplate;
+    };
+
+/**
+ * CoHost / Battle events pushed from main window to child window via
+ * IPCMessageType.COHOST_EVENT, used to drive child-side toast UX whose state
+ * is authoritatively maintained on the main window.
+ */
+export type CoHostEventPayload =
+  // Show co-host "invitation sent" success toast and remember its close handle for later dismissal.
+  | { event: 'connectionSentToast'; userId: string; userName?: string }
+  // Close a previously-shown co-host "invitation sent" toast (e.g. after reject/timeout/cancel).
+  | { event: 'closeSentToast'; userId: string }
+  // Show "battle invitation sent" success toast (no close handle is kept;
+  // mirrors kit BattlePanel which lets the toast finish its own life-cycle).
+  | { event: 'battleSentToast'; userId: string; userName?: string }
+  // Generic error toast forwarded from main-window state-layer rejections.
+  | { event: 'errorToast'; message: string };
+
+
+
 
 /**
  * Initial data for child live title setting panel.
@@ -424,10 +646,34 @@ export interface LiveTitleSettingInitialData {
 }
 
 /** Known confirm dialog business scenes */
-export type ConfirmDialogScene = 'end-live' | 'app-quit' | 'force-logout';
+export type ConfirmDialogScene = 'end-live' | 'app-quit' | 'force-logout' | 'logout';
 
 /** Backward-compatible alias for confirm scene type */
 export type ConfirmDialogSceneLike = ConfirmDialogScene;
+
+/**
+ * Action values dispatched from the `end-live` confirm dialog. Centralized
+ * here so the producer (TUILiveKitWin.showEndLiveConfirmWindow) and the
+ * consumer (TUILiveKitWin.onConfirmDialogAction) share a single source of
+ * truth — adding a new dangerous action requires touching this union and
+ * the value map below, which surfaces missed branches via TS exhaustiveness.
+ */
+export type EndLiveAction = 'cancel' | 'end-live' | 'end-battle' | 'exit-connection';
+
+/**
+ * Const object mirror of `EndLiveAction` so call sites can write
+ * `EndLiveActionValue.EndBattle` instead of repeating string literals.
+ * The `as const satisfies` pair guarantees:
+ *   - values are narrowed to the literal union (TS catches typos),
+ *   - the map is exhaustive over `EndLiveAction` (adding a member to the
+ *     union without updating the map fails to compile).
+ */
+export const EndLiveActionValue = {
+  Cancel: 'cancel',
+  EndLive: 'end-live',
+  EndBattle: 'end-battle',
+  ExitConnection: 'exit-connection',
+} as const satisfies Record<string, EndLiveAction>;
 
 /**
  * Live setting action type for child -> main write flow

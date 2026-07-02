@@ -4,14 +4,19 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch } from 'vue';
-import { TOAST_TYPE, TUIToast, useUIKit } from '@tencentcloud/uikit-base-component-vue3';
+import { useUIKit, TUIToast, TOAST_TYPE } from '@tencentcloud/uikit-base-component-vue3';
 import {
   useLiveListState, useCoHostState, CoHostEvent, SeatUserInfo, useLiveSeatState,
-  useBattleState, CoHostStatus, useCoGuestState, BattleEvent,
+  useBattleState, CoHostStatus, useCoGuestState, BattleEvent, useLoginState,
 } from 'tuikit-atomicx-vue3-electron';
 
 import { showNotification, hideNotification } from '../base-component/Notification';
+import { showMessage as showWindowMessage } from '../base-component/MessageToast';
+import type { MessageToastType } from '../base-component/MessageToast';
+import { isMacPlatform } from '../../TUILiveKit/utils/platform';
+import { BATTLE_REQUEST_TIMEOUT_SECONDS } from './CoHostPanel/constants';
 
+const { loginUserInfo } = useLoginState();
 const { currentLive } = useLiveListState();
 const {
   applicant,
@@ -25,9 +30,30 @@ const {
 } = useCoHostState();
 const { applicants: coGuestApplicants, rejectApplication } = useCoGuestState();
 const { seatList } = useLiveSeatState();
-const { subscribeEvent: subscribeBattleEvent, unsubscribeEvent: unsubscribeBattleEvent } = useBattleState();
+const { acceptBattle, rejectBattle, subscribeEvent: subscribeBattleEvent, unsubscribeEvent: unsubscribeBattleEvent } = useBattleState();
 
 const { t } = useUIKit();
+
+// Map the in-house MessageToast severity to the kit's TOAST_TYPE enum.
+const TOAST_TYPE_MAP = {
+  info: TOAST_TYPE.INFO,
+  success: TOAST_TYPE.SUCCESS,
+  warning: TOAST_TYPE.WARNING,
+  error: TOAST_TYPE.ERROR,
+} as const;
+
+// Platform-specific transient message:
+//   - macOS: render via the kit's TUIToast.
+//   - Windows: render via the in-house MessageToast (showWindowMessage).
+// Keeping the same `showMessage` signature lets all call sites stay untouched.
+const showMessage = (options: { type?: MessageToastType; message: string }) => {
+  const type = options.type || 'info';
+  if (isMacPlatform()) {
+    TUIToast({ type: TOAST_TYPE_MAP[type], message: options.message });
+  } else {
+    showWindowMessage({ type, message: options.message });
+  }
+};
 
 function safeJsonParse(extensionInfo: string) {
   try {
@@ -49,34 +75,111 @@ watch(() => coGuestApplicants.value.length, () => {
 });
 
 const handleCoHostRequestReceived = async ({ inviter, extensionInfo }: { inviter: SeatUserInfo, extensionInfo: string }) => {
-  return undefined;
+  if(coGuestApplicants.value.length > 0) {
+    rejectHostConnection({
+      liveId: inviter.liveId,
+    });
+    return;
+  }
+  const hasMoreSeatUser = seatList.value.filter((item) => item.userInfo?.userId).length > 1;
+  const allSeatUserInCoGuest = seatList.value.filter((item) => item.userInfo?.liveId !== currentLive.value?.liveId).length === 0;
+  if (hasMoreSeatUser && allSeatUserInCoGuest) {
+    await rejectHostConnection({
+      liveId: inviter.liveId,
+    });
+    return;
+  }
+  const extensionInfoObj = safeJsonParse(extensionInfo);
+  const isBattle = extensionInfoObj.withBattle;
+  showNotification({
+    cancelText: t('Reject'),
+    message: isBattle? t('Received battle invitation from userName', { userName: inviter.userName || inviter.userId }) : t('Co-host request received from user', { userName: inviter.userName || inviter.userId }),
+    duration: extensionInfoObj.timeout,
+    onAccept: () => {
+      acceptHostConnection({
+        liveId: inviter.liveId,
+      });
+      hideNotification();
+    },
+    onCancel: () => {
+      rejectHostConnection({
+        liveId: inviter.liveId,
+      });
+      hideNotification();
+    },
+    onTimeout: () => {
+      hideNotification();
+    },
+  });
 };
 
 const handleCoHostUserLeft = ({ userInfo }: { userInfo: SeatUserInfo }) => {
   if (coHostStatus.value === CoHostStatus.Connected) {
-    TUIToast({ type: TOAST_TYPE.INFO, message: t('Co-host user left event', { userName: userInfo.userName || userInfo.userId }) });
+    showMessage({ type: 'info', message: t('Co-host user left event', { userName: userInfo.userName || userInfo.userId }) });
   }
 };
 const handleCoHostRequestCancelled = ({ inviter }: { inviter: SeatUserInfo }) => {
   hideNotification();
-  TUIToast({ type: TOAST_TYPE.INFO, message: t('Co-host request cancelled by user', { userName: inviter.userName || inviter.userId }) });
+  showMessage({ type: 'info', message: t('Co-host request cancelled by user', { userName: inviter.userName || inviter.userId }) });
 }
+
+const handleCoHostRequestRejected = ({ invitee }: { invitee: SeatUserInfo }) => {
+  showMessage({ type: 'info', message: t('Invitation rejected by user', { userName: invitee.userName || invitee.userId }) });
+};
+
+const handleCoHostRequestTimeout = ({ inviter, invitee }: { inviter: SeatUserInfo; invitee: SeatUserInfo }) => {
+  if (inviter.userId === loginUserInfo.value?.userId) {
+    showMessage({ type: 'info', message: t('Invitation timeout for user', { userName: invitee.userName || invitee.userId }) });
+  }
+};
+
 const handleUserExitBattle = () => {
   return undefined;
 };
-const onBattleRequestReceived = () => {
-  // Electron pusher does not support anchor battle yet.
-  // Keep silent and let the requester side timeout naturally.
-  return undefined;
+
+const onBattleRequestReceived = (eventInfo: { battleId: string, inviter: SeatUserInfo, invitee: SeatUserInfo }) => {
+  hideNotification();
+  showNotification({
+    cancelText: t('Reject'),
+    message: t('Received battle invitation from userName', { userName: eventInfo.inviter.userName || eventInfo.inviter.userId}),
+    duration: BATTLE_REQUEST_TIMEOUT_SECONDS,
+    onAccept: () => {
+      acceptBattle({
+        battleId: eventInfo.battleId,
+      });
+      hideNotification();
+    },
+    onCancel: () => {
+      rejectBattle({
+        battleId: eventInfo.battleId,
+      });
+      hideNotification();
+    },
+    onTimeout: () => {
+      hideNotification();
+    },
+  });
 };
 const onBattleRequestCancelled = (eventInfo: { battleId: string, inviter: SeatUserInfo, invitee: SeatUserInfo }) => {
-  TUIToast({ type: TOAST_TYPE.INFO, message: t('Battle request cancelled by user', { userName: eventInfo.invitee.userName || eventInfo.invitee.userId}) });
+  showMessage({ type: 'info', message: t('Battle request cancelled by user', { userName: eventInfo.inviter.userName || eventInfo.inviter.userId}) });
   hideNotification();
 };
+
+const onBattleRequestRejected = (eventInfo: { battleId: string, inviter: SeatUserInfo, invitee: SeatUserInfo }) => {
+  if (eventInfo.inviter.userId === loginUserInfo.value?.userId) {
+    showMessage({ type: 'info', message: t('Battle request rejected by user', { userName: eventInfo.invitee.userName || eventInfo.invitee.userId }) });
+  }
+};
+
 let timeoutUsers: string[] = [];
 let timeoutTimer: number | null = null;
 
 const onBattleRequestTimeout = (eventInfo: { battleId: string, inviter: SeatUserInfo, invitee: SeatUserInfo }) => {
+  // Only the inviter should be notified that the PK request got no response.
+  // The invitee that ignored the request must not get this extra toast.
+  if (eventInfo.inviter.userId !== loginUserInfo.value?.userId) {
+    return;
+  }
   timeoutUsers.push(eventInfo.invitee.userName || eventInfo.invitee.userId);
 
   if (timeoutTimer) {
@@ -85,13 +188,13 @@ const onBattleRequestTimeout = (eventInfo: { battleId: string, inviter: SeatUser
 
   timeoutTimer = setTimeout(() => {
     if (timeoutUsers.length === 1) {
-      TUIToast({
-        type: TOAST_TYPE.INFO,
+      showMessage({
+        type: 'info',
         message: t('Battle request timeout for user', { userName: timeoutUsers[0] })
       });
     } else {
-      TUIToast({
-        type: TOAST_TYPE.INFO,
+      showMessage({
+        type: 'info',
         message: t('Battle request timeout for multiple users', { userName: timeoutUsers.join('、') })
       });
     }
@@ -101,24 +204,47 @@ const onBattleRequestTimeout = (eventInfo: { battleId: string, inviter: SeatUser
   }, 500);
 };
 
+// Hide any pending invitation popup once the local user leaves/ends the live.
+// The popup is rendered imperatively into document.body and is fully decoupled
+// from reactive state, so it would otherwise stay on screen after the room is
+// gone. currentLive.liveId is reset to '' on leaveLive/endLive, so we hide the
+// popup on that truthy -> falsy transition. Covers both co-host and battle popups.
+watch(
+  () => currentLive.value?.liveId,
+  (newLiveId, oldLiveId) => {
+    if (oldLiveId && !newLiveId) {
+      hideNotification();
+    }
+  }
+);
+
 onMounted(() => {
   subscribeCoHostEvent(CoHostEvent.onCoHostRequestReceived, handleCoHostRequestReceived);
   subscribeCoHostEvent(CoHostEvent.onCoHostRequestCancelled, handleCoHostRequestCancelled);
+  subscribeCoHostEvent(CoHostEvent.onCoHostRequestRejected, handleCoHostRequestRejected);
+  subscribeCoHostEvent(CoHostEvent.onCoHostRequestTimeout, handleCoHostRequestTimeout);
   subscribeCoHostEvent(CoHostEvent.onCoHostUserLeft, handleCoHostUserLeft);
   subscribeBattleEvent(BattleEvent.onUserExitBattle, handleUserExitBattle);
   subscribeBattleEvent(BattleEvent.onBattleRequestReceived, onBattleRequestReceived);
   subscribeBattleEvent(BattleEvent.onBattleRequestCancelled, onBattleRequestCancelled);
+  subscribeBattleEvent(BattleEvent.onBattleRequestReject, onBattleRequestRejected);
   subscribeBattleEvent(BattleEvent.onBattleRequestTimeout, onBattleRequestTimeout);
 });
 
 onUnmounted(() => {
   unsubscribeCoHostEvent(CoHostEvent.onCoHostRequestReceived, handleCoHostRequestReceived);
   unsubscribeCoHostEvent(CoHostEvent.onCoHostRequestCancelled, handleCoHostRequestCancelled);
+  unsubscribeCoHostEvent(CoHostEvent.onCoHostRequestRejected, handleCoHostRequestRejected);
+  unsubscribeCoHostEvent(CoHostEvent.onCoHostRequestTimeout, handleCoHostRequestTimeout);
   unsubscribeCoHostEvent(CoHostEvent.onCoHostUserLeft, handleCoHostUserLeft);
   unsubscribeBattleEvent(BattleEvent.onUserExitBattle, handleUserExitBattle);
   unsubscribeBattleEvent(BattleEvent.onBattleRequestReceived, onBattleRequestReceived);
   unsubscribeBattleEvent(BattleEvent.onBattleRequestCancelled, onBattleRequestCancelled);
+  unsubscribeBattleEvent(BattleEvent.onBattleRequestReject, onBattleRequestRejected);
   unsubscribeBattleEvent(BattleEvent.onBattleRequestTimeout, onBattleRequestTimeout);
+  // Safety net: the popup lives in document.body, so clear it on teardown to
+  // avoid a stale notification lingering after this component is destroyed.
+  hideNotification();
 });
 </script>
 

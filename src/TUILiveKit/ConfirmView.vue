@@ -54,6 +54,7 @@ const CONFIRM_DIALOG_SCENE = {
   EndLive: 'end-live',
   AppQuit: 'app-quit',
   ForceLogout: 'force-logout',
+  Logout: 'logout',
   Unknown: 'unknown',
 } as const;
 type DialogSceneState = ConfirmDialogScene | typeof CONFIRM_DIALOG_SCENE.Unknown;
@@ -61,6 +62,7 @@ const KNOWN_DIALOG_SCENES = new Set<ConfirmDialogScene>([
   CONFIRM_DIALOG_SCENE.EndLive,
   CONFIRM_DIALOG_SCENE.AppQuit,
   CONFIRM_DIALOG_SCENE.ForceLogout,
+  CONFIRM_DIALOG_SCENE.Logout,
 ]);
 
 const confirmViewRef: Ref<HTMLElement | null> = ref(null);

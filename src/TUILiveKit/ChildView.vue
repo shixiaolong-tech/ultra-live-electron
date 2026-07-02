@@ -78,6 +78,13 @@
       @action="handleMusicAction"
       @close="handleClose"
     />
+    <CoHostPanelDialog
+      v-else-if="currentPanel === ChildPanelType.CoHostConnection"
+      custom-classes="dialog-in-child-window"
+      :data="coHostPanelData"
+      @action="handleCoHostAction"
+      @close="handleClose"
+    />
     <div v-else class="child-view-placeholder"></div>
   </div>
 </template>
@@ -97,6 +104,7 @@ import UserProfileDialog from './components/LiveHeader/UserProfileDialog.vue';
 import { UserProfileInfo } from './components/LiveUserProfile/index.vue';
 import LiveTitleSettingDialog from './components/LiveHeader/LiveTitleSettingDialog.vue';
 import MusicPanelDialog from './components/MusicPanel/MusicPanelDialog.vue';
+import CoHostPanelDialog from './components/CoHostPanel/CoHostPanelDialog.vue';
 import { ipcBridge, IPCMessageType, toPlainIpcPayload, ChildPanelType } from './ipc';
 import type {
   ShowChildPanelPayload,
@@ -109,8 +117,11 @@ import type {
   MusicPanelSnapshot,
   MusicActionPayload,
   MusicEventPayload,
+  CoHostActionPayload,
+  CoHostEventPayload,
+  CoHostPanelSnapshot,
 } from './ipc';
-import { useDeviceState, MusicPlayStatus } from 'tuikit-atomicx-vue3-electron';
+import { useDeviceState, MusicPlayStatus, CoHostStatus, CoHostLayoutTemplate } from 'tuikit-atomicx-vue3-electron';
 import type { MediaSource } from 'tuikit-atomicx-vue3-electron';
 import { getPlayErrorMessage } from './components/MusicPanel/helpers';
 import logger from './utils/logger';
@@ -196,6 +207,45 @@ const musicPanelData = computed<MusicPanelSnapshot>(() => {
     totalDuration: 0,
     musicVolume: 60,
     musicPitch: 0,
+  };
+});
+
+/**
+ * Read-only CoHostPanelSnapshot for CoHostPanelDialog.
+ *
+ * Same pattern as `musicPanelData`: dataInEdit carries the snapshot pushed
+ * from the main window via SHOW_CHILD_PANEL initialData and UPDATE_CHILD_DATA
+ * incremental frames. A safe default keeps the panel renderable even before
+ * the first IPC frame arrives.
+ */
+const coHostPanelData = computed<CoHostPanelSnapshot>(() => {
+  const data = dataInEdit.value;
+  if (data && typeof data === 'object' && 'coHostStatus' in data) {
+    return data as CoHostPanelSnapshot;
+  }
+  return {
+    loginUserInfo: null,
+    currentLive: null,
+    coHostStatus: CoHostStatus.Disconnected,
+    candidates: [],
+    candidatesCursor: '',
+    invitees: [],
+    connected: [],
+    applicant: null,
+    mutedHostLiveIds: [],
+    battleId: '',
+    battleUsers: [],
+    battleScore: [],
+    pendingBattleRequestUserIds: [],
+    pendingBattleRequestId: '',
+    pendingPkInviteeUserIds: [],
+    hasPendingBattleInvite: false,
+    hasPendingConnectionInvite: false,
+    hasPendingBattleAutoStart: false,
+    configForm: {
+      battleDuration: 5 * 60,
+      coHostLayoutTemplate: CoHostLayoutTemplate.HostDynamicGrid,
+    },
   };
 });
 
@@ -306,6 +356,72 @@ function handleMusicAction(action: MusicActionPayload) {
   ipcBridge.sendToMain(IPCMessageType.MUSIC_ACTION, toPlainIpcPayload(action));
 }
 
+/**
+ * Forward a CoHost / Battle user intent back to the main window.
+ *
+ * Same lifecycle contract as handleMusicAction: the child window is kept open
+ * across action dispatches so the user can keep interacting; only an explicit
+ * close click or a HIDE_CHILD_PANEL from the main window tears it down.
+ */
+function handleCoHostAction(action: CoHostActionPayload) {
+  logger.log(`${logPrefix} cohostAction`, action);
+  ipcBridge.sendToMain(IPCMessageType.COHOST_ACTION, toPlainIpcPayload(action));
+}
+
+/**
+ * Outbound co-host invitation toasts authoritatively live on the main window
+ * (so they can be coordinated with reject/timeout/cancel events). The main
+ * window tells the child via COHOST_EVENT when to open / close them; the
+ * child stores the close-handle locally per userId so a later closeSentToast
+ * event can dismiss the right toast.
+ */
+const cohostSentToastHandles = new Map<string, () => void>();
+
+function onCoHostEvent(event: CoHostEventPayload) {
+  logger.log(`${logPrefix} cohostEvent`, event);
+  switch (event.event) {
+  case 'connectionSentToast': {
+    const sent = TUIToast({
+      type: TOAST_TYPE.SUCCESS,
+      message: t('Co-host invitation sent to user', { userName: event.userName || event.userId }),
+    });
+    if (sent?.close) {
+      cohostSentToastHandles.set(event.userId, sent.close);
+    }
+    break;
+  }
+  case 'closeSentToast': {
+    const close = cohostSentToastHandles.get(event.userId);
+    if (close) {
+      try {
+        close();
+      } catch (_e) {
+        // Ignore: toast may already be closed by its own timer.
+      }
+      cohostSentToastHandles.delete(event.userId);
+    }
+    break;
+  }
+  case 'battleSentToast': {
+    // Battle invite "sent" toasts are not tracked for later dismissal — kit
+    // BattlePanel lets them complete their own life-cycle. We just render.
+    TUIToast({
+      type: TOAST_TYPE.SUCCESS,
+      message: t('Battle invitation sent to user', { userName: event.userName || event.userId }),
+    });
+    break;
+  }
+  case 'errorToast':
+    TUIToast({ type: TOAST_TYPE.ERROR, message: event.message });
+    break;
+  default: {
+    // Exhaustiveness guard: any new variant must be handled here.
+    const _exhaustive: never = event;
+    void _exhaustive;
+  }
+  }
+}
+
 const { t } = useUIKit();
 
 /** Show a localized toast triggered by MUSIC_EVENT from the main window. */
@@ -320,6 +436,13 @@ function onMusicEvent(event: MusicEventPayload) {
 }
 
 onMounted(() => {
+  // Tag the child window's <body> so the global Toast override below can be
+  // scoped to this window only. Toasts are rendered imperatively into
+  // document.body (outside this component subtree), so a scoped style cannot
+  // reach them; the marker class lets us cap their width / enable wrapping in
+  // the narrow child window without affecting the main window's toasts.
+  document.body.classList.add('tui-live-kit-child-window');
+
   getCameraList().catch((e) => logger.log(`${logPrefix} pre-fetch camera list failed`, e));
 
   // ============== Unified panel control via SHOW_CHILD_PANEL ==============
@@ -354,8 +477,41 @@ onMounted(() => {
 
   // ============== Music event passthrough from main window ==============
   ipcBridge.on(IPCMessageType.MUSIC_EVENT, onMusicEvent);
+
+  // ============== CoHost / Battle event passthrough from main window ==============
+  ipcBridge.on(IPCMessageType.COHOST_EVENT, onCoHostEvent);
 });
 </script>
+
+<!--
+  Global (non-scoped) override for the imperative TUIToast.
+
+  TUIToast renders its node into document.body, outside this component's
+  subtree, so a scoped style cannot target it. We scope the override under the
+  `body.tui-live-kit-child-window` marker class (added in onMounted) so it only
+  applies inside the narrow child window — the main window's <body> never gets
+  this class, so its toasts stay unchanged.
+
+  On Electron the toast always uses the PC variant (.tui-message-wrap), which is
+  capped at a fixed 628px with `white-space: nowrap`, so in the much narrower
+  child window long messages overflow the viewport and get clipped. Cap the
+  toast at 80% of the (child) window width and let long messages wrap instead.
+-->
+<style lang="scss">
+body.tui-live-kit-child-window {
+  .tui-message-wrap {
+    max-width: 80vw;
+    width: fit-content;
+  }
+
+  .tui-message p {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    text-overflow: clip;
+  }
+}
+</style>
 
 <style lang="scss" scoped>
 .tui-live-kit-child {
