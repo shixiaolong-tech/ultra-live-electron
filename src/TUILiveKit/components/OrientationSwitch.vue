@@ -34,8 +34,12 @@ const { t } = useUIKit();
 
 const { currentLive, updateLiveInfo } = useLiveListState();
 const currentOrientation = ref(LiveOrientation.Landscape);
-// Store layout template before live starts to restore after live ends
-let lastValidTemplate = TUISeatLayoutTemplate.LandscapeDynamic_1v3;
+// Store layout template before live starts to restore after live ends.
+// Aligned with the web demo: this is only updated outside a live session
+// (guarded by !hasLiveId below), so the co-host layout reported via
+// onSeatLayoutChanged during a live (e.g. HostVideoLandscapeFixed2Seats=400)
+// can never overwrite the orientation default the next live should start with.
+let layoutBeforeLive = TUISeatLayoutTemplate.LandscapeDynamic_1v3;
 
 // Determine if layout template is valid
 const isValidLayout = (layout: number | undefined) => layout && layout !== 0;
@@ -52,14 +56,14 @@ watch(
     const hasLiveId = !!currentLive.value?.liveId;
 
     // Handle invalid layout after ending live: restore previous layout
-    if (!hasLiveId && !isValidLayout(newVal)) {
-      updateLiveInfo({ layoutTemplate: lastValidTemplate });
+    if (!isValidLayout(newVal) && !hasLiveId) {
+      updateLiveInfo({ layoutTemplate: layoutBeforeLive });
       return;
     }
 
-    // Save current layout
-    if (isValidLayout(newVal)) {
-      lastValidTemplate = newVal!;
+    // Save current layout when not in live session
+    if (!hasLiveId && isValidLayout(newVal)) {
+      layoutBeforeLive = newVal!;
     }
 
     // Update orientation based on layout
@@ -79,7 +83,7 @@ watch(
   () => currentLive.value?.liveId,
   (liveId) => {
     if (!liveId && !isValidLayout(currentLive.value?.layoutTemplate)) {
-      updateLiveInfo({ layoutTemplate: lastValidTemplate });
+      updateLiveInfo({ layoutTemplate: layoutBeforeLive });
     }
   },
   { immediate: true },

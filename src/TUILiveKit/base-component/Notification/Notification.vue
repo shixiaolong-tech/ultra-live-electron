@@ -34,7 +34,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed, defineProps } from 'vue'
 import { useUIKit, TUIButton } from '@tencentcloud/uikit-base-component-vue3'
-import { NOTIFICATION_CONTAINER_ID } from './index'
+// Import from the leaf module instead of `./index` to break the
+// child SFC <-> barrel circular dependency. See `./constants.ts`.
+import { NOTIFICATION_CONTAINER_ID } from './constants'
 import type { NotificationOptions } from './types'
 
 interface Props {
@@ -107,7 +109,7 @@ onBeforeUnmount(() => {
 .notificationContainer {
   position: fixed;
   top: 60px;
-  right: 20px;
+  right: 12px;
   z-index: 9999;
   pointer-events: auto;
   border-radius: 16px;
@@ -116,8 +118,8 @@ onBeforeUnmount(() => {
   padding: 24px;
   box-shadow: 0 8px 18px 0 var(---Black-8, rgba(0, 0, 0, 0.06)), 0 2px 6px 0 var(---Black-8, rgba(0, 0, 0, 0.06));
   backdrop-filter: blur(20px);
-  max-width: 360px;
-  min-width: 320px;
+  max-width: 20%;
+  min-width: 20%;
 }
 
 .message {
@@ -127,6 +129,8 @@ onBeforeUnmount(() => {
   font-weight: 600;
   line-height: 24px;
   margin-bottom: 20px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .actions {

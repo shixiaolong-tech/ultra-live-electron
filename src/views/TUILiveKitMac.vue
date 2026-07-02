@@ -31,10 +31,11 @@
               </div>
             </div>
             <div
-              v-if="isToolsExpanded"
+              v-show="isToolsExpanded"
               class="main-left-bottom-tools"
             >
               <CoGuestButton />
+              <CoHostButton />
               <MusicButton />
             </div>
           </div>
@@ -155,6 +156,14 @@
               >
                 {{ t('End live') }}
               </TUIButton>
+              <TUIButton
+                v-if="coHostStatus === CoHostStatus.Connected && !currentBattleInfo?.battleId"
+                type="primary"
+                color="red"
+                @click="handleExitConnection"
+              >
+                {{ t('Exit connection') }}
+              </TUIButton>
             </div>
           </template>
         </TUIDialog>
@@ -185,6 +194,9 @@ import {
   useLiveListState,
   useDeviceState,
   useCoGuestState,
+  useCoHostState,
+  useBattleState,
+  CoHostStatus,
   LiveScenePanel,
   StreamMixer,
   LiveAudienceList,
@@ -197,8 +209,8 @@ import {
 } from 'tuikit-atomicx-vue3-electron';
 import TUIRoomEngine, { TUISeatMode } from '@tencentcloud/tuiroom-engine-electron';
 import { useElectronLogin } from '../TUILiveKit/hooks/useElectronLogin';
-
 import CoGuestButton from '../TUILiveKit/components/CoGuestButton.vue';
+import CoHostButton from '../TUILiveKit/components/CoHostButton.vue';
 import LayoutSwitch from '../TUILiveKit/components/LayoutSwitch.vue';
 import MusicButton from '../TUILiveKit/components/MusicButton.vue';
 import MicVolumeSetting from '../TUILiveKit/components/MicVolumeSetting.vue';
@@ -236,6 +248,8 @@ const { handleErrorWithModal } = useLiveErrorModal();
 const { audienceCount } = useLiveAudienceState();
 const { openLocalMicrophone } = useDeviceState();
 const { connected: coGuestConnected } = useCoGuestState();
+const { coHostStatus, exitHostConnection } = useCoHostState();
+const { currentBattleInfo } = useBattleState();
 const roomEngine = useRoomEngine();
 const isInLive = computed(() => !!currentLive.value?.liveId);
 const loading = ref(false);
@@ -279,6 +293,19 @@ const showEndLiveDialog = async () => {
   exitLiveDialogVisible.value = true;
 };
 
+// "Exit connection" branch in the end-live confirmation dialog
+const handleExitConnection = async () => {
+  if (coHostStatus.value === CoHostStatus.Disconnected) {
+    exitLiveDialogVisible.value = false;
+    return;
+  }
+  exitLiveDialogVisible.value = false;
+  try {
+    await exitHostConnection();
+  } catch (error) {
+    console.error('[TUILiveKitMac] exitHostConnection from end-live dialog failed', error);
+  }
+};
 
 // Setup useElectronLogin Hook
 const {
@@ -297,6 +324,31 @@ const {
 
 // Handle logout with live status check
 const handleLogout = async () => {
+  // When still live streaming, ask the host to confirm first: logging out
+  // will automatically end the ongoing live stream.
+  if (isInLive.value) {
+    TUIMessageBox.confirm({
+      title: t('Logout'),
+      content: t('You are currently live streaming. Logging out will automatically end the live stream. Are you sure you want to log out?'),
+      confirmText: t('Logout'),
+      cancelText: t('Cancel'),
+      // Disable mask click to dismiss, consistent with the app-quit
+      // confirmation: destructive confirmations should only be resolved via
+      // the explicit Confirm / Cancel buttons.
+      modal: false,
+      callback: async (action) => {
+        if (action !== 'confirm') {
+          return;
+        }
+        try {
+          await handleElectronLogout();
+        } catch (error) {
+          redirectToLogin();
+        }
+      },
+    });
+    return;
+  }
   try {
     await handleElectronLogout();
   } catch (error) {
@@ -309,7 +361,18 @@ function redirectToLogin() {
   router.replace({ name: 'login' });
 }
 
+// Dialog message follows the same priority as the Web LivePusherView
+// (PK > CoHost > CoGuest > default). While in PK the host can only end the
+// whole live (ending the battle alone is no longer offered), so the PK
+// branch shows a dedicated PK exit confirmation. Mirrors
+// web-vite-vue3's `LivePusherView.vue`.
 const endLiveDialogMessage = computed(() => {
+  if (currentBattleInfo.value?.battleId) {
+    return t('You are currently live streaming and in a PK battle. Are you sure you want to exit?');
+  }
+  if (coHostStatus.value === CoHostStatus.Connected) {
+    return t('Currently connected, do you need to "exit connection" or "end live broadcast"');
+  }
   if (coGuestConnected.value.length > 1) {
     return t('You are currently co-guesting with other streamers. Would you like to [End Live] ?');
   }
@@ -621,7 +684,6 @@ onBeforeUnmount(() => {
     flex-direction: row;
     user-select: none;
     padding: 0 12px 12px 12px;
-    border-radius: 8px;
     background-color: var(--bg-color-topbar);
     @include scrollbar;
 
@@ -697,7 +759,7 @@ onBeforeUnmount(() => {
               }
 
               &.collapsed {
-                transform: rotate(-90deg);
+                transform: rotate(180deg);
               }
             }
           }
@@ -886,6 +948,20 @@ onBeforeUnmount(() => {
       }
     }
   }
+
+  .loading-icon {
+    animation: rotate 1s linear infinite;
+  }
+
+  @keyframes rotate {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
   .card-title {
     @include text-size-16;
     @include dividing-line;

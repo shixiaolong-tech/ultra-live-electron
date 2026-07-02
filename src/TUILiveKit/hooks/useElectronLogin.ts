@@ -432,10 +432,26 @@ export function useElectronLogin(options: UseElectronLoginOptions = {}): UseElec
     loginStatus.value = 'failed';
     isLoggingIn.value = false;
 
+    // Drop the stored credential when the failure is credential-related
+    // (expired / mismatched userSig, invalid params). The userSig / SDK-secret
+    // / userID login types have no `expire` field, so this SDK login error is
+    // the ONLY signal that their credential is no longer usable — clearing it
+    // forces a clean re-login and prevents a "login failed -> login page" flash
+    // on every relaunch. Transient errors (network, UNKNOWN) keep the
+    // credential so a later retry / relaunch can still succeed.
+    const failureType = classifyLoginError(lastError);
+    const isCredentialInvalid = failureType === LoginErrorType.USER_SIG_EXPIRED
+      || failureType === LoginErrorType.USER_SIG_MISMATCH
+      || failureType === LoginErrorType.INVALID_PARAMETERS;
+    if (isCredentialInvalid) {
+      logger.warn(`${logPrefix}clearing stored credential due to invalid login: ${failureType}`);
+      window.localStorage.removeItem(USER_INFO_STORAGE_KEY);
+    }
+
     // Handle login error with classification
     handleLoginError(lastError, options.sdkAppId);
 
-    // Trigger login failed callback
+    // Trigger login failed callback (views redirect to the login route here).
     onLoginFailed?.();
 
     // Throw error for caller to handle
